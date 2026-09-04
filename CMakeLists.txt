@@ -24,9 +24,11 @@ set(DATA_SOURCES
 )
 
 set(UI_SOURCES
+    src/ui/TaskEditDialog.h
     src/ui/BoardColumnWidget.h
     src/ui/TaskCardWidget.h
     src/ui/MainWindow.h
+    src/ui/TaskEditDialog.cpp
     src/ui/BoardColumnWidget.cpp
     src/ui/TaskCardWidget.cpp
     src/ui/MainWindow.cpp

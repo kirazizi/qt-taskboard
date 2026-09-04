@@ -4,7 +4,9 @@
 #include "core/Task.h"
 
 #include <QDebug>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -46,6 +48,7 @@ bool JsonStore::save(const Board &board, const QString &filePath)
     root[QStringLiteral("tasks")] = array;
 
     QJsonDocument doc(root);
+    QFileInfo(filePath).dir().mkpath(QStringLiteral("."));
 
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) {

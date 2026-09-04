@@ -8,7 +8,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     // Application metadata (used by QSettings in Tier 2)
-    QApplication::setOrganizationName("qt-taskboard");
+    QApplication::setOrganizationName("taskboard");
     QApplication::setApplicationName("qt-taskboard");
 
     MainWindow window;
