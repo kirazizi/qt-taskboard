@@ -66,6 +66,9 @@ void Board::moveTask(QUuid id, Task::Status newStatus)
 {
     for (Task &t : m_tasks) {
         if (t.id() == id) {
+            if (t.status() == newStatus) {
+                return;
+            }
             t.setStatus(newStatus);
             emit taskUpdated(t);
             return;

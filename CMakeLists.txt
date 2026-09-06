@@ -39,6 +39,7 @@ add_executable(qt-taskboard
     ${CORE_SOURCES}
     ${DATA_SOURCES}
     ${UI_SOURCES}
+    resources.qrc
 )
 
 target_include_directories(qt-taskboard PRIVATE src)

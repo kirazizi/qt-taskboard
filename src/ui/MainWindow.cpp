@@ -4,12 +4,77 @@
 #include "ui/BoardColumnWidget.h"
 #include "ui/TaskEditDialog.h"
 #include <QHBoxLayout>
+#include <QLabel>
+#include <QPainter>
+#include <QPixmap>
 #include <QPushButton>
+#include <QResizeEvent>
 #include <QStandardPaths>
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <algorithm>
+
+namespace {
+class BoardCanvasWidget : public QWidget
+{
+public:
+    explicit BoardCanvasWidget(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setAttribute(Qt::WA_OpaquePaintEvent, false);
+        if (!m_sourcePixmap.load(QStringLiteral(":/background.png"))) {
+            m_sourcePixmap.load(QStringLiteral("resources/images/background.png"));
+        }
+    }
+
+protected:
+    void resizeEvent(QResizeEvent *event) override
+    {
+        QWidget::resizeEvent(event);
+        updateCachedPixmap();
+    }
+
+    void paintEvent(QPaintEvent *event) override
+    {
+        Q_UNUSED(event);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform);
+        if (!m_scaledPixmap.isNull()) {
+            painter.drawPixmap(0, 0, m_scaledPixmap);
+        } else if (!m_sourcePixmap.isNull()) {
+            painter.drawPixmap(rect(), m_sourcePixmap.scaled(size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
+        } else {
+            QLinearGradient grad(0, 0, width(), height());
+            grad.setColorAt(0, QColor(0xdd, 0xe6, 0xf0));
+            grad.setColorAt(1, QColor(0xc8, 0xd8, 0xea));
+            painter.fillRect(rect(), grad);
+        }
+    }
+
+private:
+    void updateCachedPixmap()
+    {
+        if (m_sourcePixmap.isNull() || width() <= 0 || height() <= 0) {
+            m_scaledPixmap = QPixmap();
+            return;
+        }
+        QSize targetSize = m_sourcePixmap.size().scaled(size(), Qt::KeepAspectRatioByExpanding);
+        QPixmap scaled = m_sourcePixmap.scaled(targetSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+
+        // Align horizontally centered, vertically bottom-aligned so the mountain peaks stay visible
+        int x = std::max(0, (scaled.width() - width()) / 2);
+        int y = scaled.height() - height();
+        if (y < 0) y = 0;
+        if (x < 0) x = 0;
+
+        m_scaledPixmap = scaled.copy(x, y, width(), height());
+    }
+
+    QPixmap m_sourcePixmap;
+    QPixmap m_scaledPixmap;
+};
+} // namespace
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -27,28 +92,64 @@ MainWindow::~MainWindow() = default;
 
 void MainWindow::setupUi()
 {
-    setWindowTitle(QStringLiteral("Qt Taskboard"));
-    setMinimumSize(900, 600);
-    resize(1100, 700);
+    setWindowTitle(QStringLiteral("Taskboard"));
+    setMinimumSize(900, 580);
+    resize(1150, 720);
+
+    // ── Toolbar ──────────────────────────────────────────────────────────
     auto *toolbar = addToolBar(QStringLiteral("Main"));
     toolbar->setMovable(false);
+
+    // App name
+    auto *appLabel = new QLabel(QStringLiteral("Taskboard"), toolbar);
+    appLabel->setStyleSheet(QStringLiteral(
+        "color: #1a202c; font-size: 15px; font-weight: 700;"
+        " background: transparent; padding-left: 4px;"
+    ));
+    toolbar->addWidget(appLabel);
+
+    // Flexible spacer
+    auto *spacer = new QWidget(toolbar);
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    spacer->setStyleSheet("background: transparent;");
+    toolbar->addWidget(spacer);
+
+    // Add Task button – clean blue
     auto *addBtn = new QPushButton(QStringLiteral("+ Add Task"), toolbar);
     addBtn->setStyleSheet(QStringLiteral(
-        "QPushButton { background: #6366f1; color: white; border: none;"
-        " padding: 6px 16px; border-radius: 4px; font-weight: bold; }"
-        "QPushButton:hover { background: #4f46e5; }"
+        "QPushButton {"
+        "  background: #4299e1;"
+        "  color: white;"
+        "  border: none;"
+        "  padding: 7px 20px;"
+        "  border-radius: 7px;"
+        "  font-weight: 600;"
+        "  font-size: 13px;"
+        "}"
+        "QPushButton:hover { background: #3182ce; }"
+        "QPushButton:pressed { background: #2b6cb0; }"
     ));
     toolbar->addWidget(addBtn);
+
+    auto *rpad = new QWidget(toolbar);
+    rpad->setFixedWidth(4);
+    rpad->setStyleSheet("background: transparent;");
+    toolbar->addWidget(rpad);
+
     connect(addBtn, &QPushButton::clicked, this, &MainWindow::onAddTask);
-    auto *central = new QWidget(this);
+
+    // ── Board canvas with user background ────────────────────────────────
+    auto *central = new BoardCanvasWidget(this);
     setCentralWidget(central);
-    central->setStyleSheet(QStringLiteral("background: #f8fafc;"));
+
     auto *boardLayout = new QHBoxLayout(central);
-    boardLayout->setContentsMargins(16, 16, 16, 16);
+    boardLayout->setContentsMargins(20, 20, 20, 20);
     boardLayout->setSpacing(16);
-    m_columns[0] = new BoardColumnWidget(QStringLiteral("To Do"),      Task::Status::ToDo,       m_board.get(), central);
-    m_columns[1] = new BoardColumnWidget(QStringLiteral("In Progress"), Task::Status::InProgress, m_board.get(), central);
-    m_columns[2] = new BoardColumnWidget(QStringLiteral("Done"),       Task::Status::Done,        m_board.get(), central);
+
+    m_columns[0] = new BoardColumnWidget(QStringLiteral("To Do"),       Task::Status::ToDo,       m_board.get(), central);
+    m_columns[1] = new BoardColumnWidget(QStringLiteral("In Progress"),  Task::Status::InProgress, m_board.get(), central);
+    m_columns[2] = new BoardColumnWidget(QStringLiteral("Done"),         Task::Status::Done,        m_board.get(), central);
+
     for (auto *col : m_columns) {
         col->setMinimumWidth(260);
         boardLayout->addWidget(col, 1);

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/Task.h"
-
 #include <QWidget>
 
 class QLabel;
@@ -9,10 +8,9 @@ class QLabel;
 /**
  * TaskCardWidget -- visual representation of a single Task on the board.
  *
- * Ownership: Qt parent-child tree (parent = the column widget that holds it).
- * Drag & Drop: This widget is the DRAG SOURCE. It starts a drag on
- * mouse press and encodes the task UUID in QMimeData so the
- * BoardColumnWidget (drop target) knows which task was dropped.
+ * Drag & Drop: DRAG SOURCE. Starts a drag on mouse press and encodes the
+ * task UUID in QMimeData so the BoardColumnWidget (drop target) can identify
+ * which task was moved.
  */
 class TaskCardWidget : public QWidget
 {
@@ -21,29 +19,28 @@ class TaskCardWidget : public QWidget
 public:
     explicit TaskCardWidget(const Task &task, QWidget *parent = nullptr);
 
-    // Return the task this card represents (used by column when deleting)
     QUuid taskId() const;
-
-    // Refresh displayed data after a task is edited
-    void updateFromTask(const Task &task);
+    void  updateFromTask(const Task &task);
 
 signals:
-    // Emitted when the user clicks the edit button on this card
     void editRequested(QUuid id);
-    // Emitted when the user clicks the delete button
     void deleteRequested(QUuid id);
 
 protected:
-    // Override mousePressEvent to start a drag operation
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void enterEvent(QEnterEvent *event) override;
+    void leaveEvent(QEvent *event) override;
 
 private:
     void updatePriorityLabel(Task::Priority p);
     void updateDueDateLabel(QDate dueDate);
 
-    Task    m_task;
-    QLabel *m_titleLabel;
-    QLabel *m_priorityLabel;
-    QLabel *m_dueDateLabel;
+    Task     m_task;
+    QLabel  *m_titleLabel    = nullptr;
+    QLabel  *m_priorityLabel = nullptr;
+    QLabel  *m_dueDateLabel  = nullptr;
+    QWidget *m_actionBar     = nullptr;
+    QPoint   m_dragStartPosition;
 };
-

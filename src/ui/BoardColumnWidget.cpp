@@ -18,46 +18,75 @@ BoardColumnWidget::BoardColumnWidget(const QString &title,
     , m_board(board)
 {
     setAcceptDrops(true);
+    setAttribute(Qt::WA_StyledBackground, true);
+
+    // White column card with rounded corners and drop shadow feel
+    setObjectName(QStringLiteral("boardColumn"));
+    setStyleSheet(QStringLiteral(
+        "#boardColumn {"
+        "  background: rgba(255, 255, 255, 0.85);"
+        "  border: 1px solid rgba(210, 224, 238, 0.75);"
+        "  border-radius: 12px;"
+        "}"
+    ));
 
     auto *outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
     outerLayout->setSpacing(0);
 
-    // Header: title + task count badge
+    // ── Header ────────────────────────────────────────────────────────────
     auto *header = new QWidget(this);
+    header->setAttribute(Qt::WA_StyledBackground, true);
     header->setObjectName(QStringLiteral("colHeader"));
     header->setStyleSheet(QStringLiteral(
-        "#colHeader { background: #f1f5f9; padding: 12px;"
-        " border-bottom: 1px solid #e2e8f0; }"
+        "#colHeader {"
+        "  background: transparent;"
+        "  border-bottom: 1px solid rgba(226, 232, 240, 0.8);"
+        "}"
     ));
+
     auto *headerLayout = new QHBoxLayout(header);
+    headerLayout->setContentsMargins(16, 12, 16, 12);
+    headerLayout->setSpacing(8);
 
     auto *titleLabel = new QLabel(title, header);
-    QFont f(titleLabel->font());
-    f.setWeight(QFont::Bold);
-    f.setPointSize(11);
-    titleLabel->setFont(f);
+    titleLabel->setStyleSheet(QStringLiteral(
+        "color: #2d3748; font-weight: 700; font-size: 13px;"
+        " background: transparent;"
+    ));
 
+    // Count badge – simple pill
     m_countLabel = new QLabel(QStringLiteral("0"), header);
+    m_countLabel->setAlignment(Qt::AlignCenter);
+    m_countLabel->setFixedHeight(20);
+    m_countLabel->setMinimumWidth(24);
     m_countLabel->setStyleSheet(QStringLiteral(
-        "background: #e0e7ff; color: #4338ca; padding: 2px 8px;"
-        " border-radius: 10px; font-size: 11px;"
+        "background: #e2e8f0;"
+        "color: #4a5568;"
+        "border-radius: 10px;"
+        "font-size: 11px;"
+        "font-weight: 600;"
+        "padding: 0 7px;"
     ));
 
     headerLayout->addWidget(titleLabel);
     headerLayout->addStretch();
     headerLayout->addWidget(m_countLabel);
 
-    // Scrollable card list
+    // ── Scrollable card list ──────────────────────────────────────────────
     auto *scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setStyleSheet(QStringLiteral(
+        "QScrollArea { background: transparent; border: none; }"
+    ));
 
     auto *cardsContainer = new QWidget;
+    cardsContainer->setStyleSheet(QStringLiteral("background: transparent;"));
     m_cardsLayout = new QVBoxLayout(cardsContainer);
-    m_cardsLayout->setContentsMargins(8, 8, 8, 8);
-    m_cardsLayout->setSpacing(6);
+    m_cardsLayout->setContentsMargins(10, 10, 10, 10);
+    m_cardsLayout->setSpacing(8);
     m_cardsLayout->addStretch();
 
     scrollArea->setWidget(cardsContainer);
@@ -94,8 +123,7 @@ void BoardColumnWidget::updateCard(const Task &task)
 
 void BoardColumnWidget::rebuildAll(const QList<Task> &tasks)
 {
-    while (m_cardsLayout->count() > 1)
-    {
+    while (m_cardsLayout->count() > 1) {
         auto *item = m_cardsLayout->takeAt(0);
         if (item->widget()) item->widget()->deleteLater();
         delete item;
@@ -116,7 +144,6 @@ TaskCardWidget *BoardColumnWidget::findCard(QUuid id) const
 
 void BoardColumnWidget::updateCount()
 {
-    // -1 because the last layout item is always the trailing stretch
     m_countLabel->setText(QString::number(m_cardsLayout->count() - 1));
 }
 
