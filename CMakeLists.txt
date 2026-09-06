@@ -15,16 +15,22 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS Core Widgets)
 # Source files -- grouped by layer (core / data / ui)
 # -----------------------------------------------------------------------
 set(CORE_SOURCES
-    # src/core/Task.cpp               (added Day 3-4)
-    # src/core/Board.cpp
+    src/core/Task.cpp
+    src/core/Board.cpp
 )
 
 set(DATA_SOURCES
-    # src/data/JsonStore.cpp          (added Day 3-4)
+    src/data/JsonStore.cpp
 )
 
 set(UI_SOURCES
+    src/ui/TaskEditDialog.h
+    src/ui/BoardColumnWidget.h
+    src/ui/TaskCardWidget.h
     src/ui/MainWindow.h
+    src/ui/TaskEditDialog.cpp
+    src/ui/BoardColumnWidget.cpp
+    src/ui/TaskCardWidget.cpp
     src/ui/MainWindow.cpp
 )
 
@@ -33,6 +39,7 @@ add_executable(qt-taskboard
     ${CORE_SOURCES}
     ${DATA_SOURCES}
     ${UI_SOURCES}
+    resources.qrc
 )
 
 target_include_directories(qt-taskboard PRIVATE src)
