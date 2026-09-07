@@ -2,6 +2,7 @@
 
 #include "core/Task.h"
 #include <QWidget>
+#include <optional>
 
 class QLabel;
 
@@ -20,7 +21,9 @@ public:
     explicit TaskCardWidget(const Task &task, QWidget *parent = nullptr);
 
     QUuid taskId() const;
-    void  updateFromTask(const Task &task);
+    const Task &task() const { return m_task; }
+    bool matches(const QString &query, std::optional<Task::Priority> priority) const;
+    void updateFromTask(const Task &task);
 
 signals:
     void editRequested(QUuid id);

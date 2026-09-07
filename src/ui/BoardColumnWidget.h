@@ -1,7 +1,10 @@
 #pragma once
+
 #include "core/Task.h"
 #include <QList>
 #include <QWidget>
+#include <optional>
+
 class Board;
 class TaskCardWidget;
 class QLabel;
@@ -18,6 +21,7 @@ class QScrollArea;
 class BoardColumnWidget : public QWidget
 {
     Q_OBJECT
+
 public:
     explicit BoardColumnWidget(const QString &title,
                                Task::Status status,
@@ -28,6 +32,7 @@ public:
     void removeCard(QUuid id);
     void updateCard(const Task &task);
     void rebuildAll(const QList<Task> &tasks);
+    void setFilter(const QString &textQuery, std::optional<Task::Priority> priority);
 
 signals:
     // Bubbled up from TaskCardWidget to MainWindow
@@ -40,10 +45,12 @@ protected:
     void dropEvent(QDropEvent *event) override;
 
 private:
-    Task::Status      m_status;
-    Board            *m_board;
-    QVBoxLayout      *m_cardsLayout;
-    QLabel           *m_countLabel;
+    Task::Status                  m_status;
+    Board                        *m_board;
+    QVBoxLayout                  *m_cardsLayout;
+    QLabel                       *m_countLabel;
+    QString                       m_filterQuery;
+    std::optional<Task::Priority> m_filterPriority;
 
     TaskCardWidget *findCard(QUuid id) const;
     void updateCount();

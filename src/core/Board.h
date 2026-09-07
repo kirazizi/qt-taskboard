@@ -33,6 +33,11 @@ public:
     // Tasks filtered by column (used by UI to populate each column)
     QList<Task> tasksByStatus(Task::Status status) const;
 
+    // Tasks filtered by column, search text query, and priority (Tier 1 Item 6)
+    QList<Task> tasksFiltered(Task::Status status,
+                              const QString &textQuery = {},
+                              std::optional<Task::Priority> priority = std::nullopt) const;
+
     // Look up a single task by its UUID (returns nullopt if not found)
     std::optional<Task> findTask(QUuid id) const;
 
