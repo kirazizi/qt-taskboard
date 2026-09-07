@@ -3,8 +3,10 @@
 #include "data/JsonStore.h"
 #include "ui/BoardColumnWidget.h"
 #include "ui/TaskEditDialog.h"
+#include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
@@ -104,24 +106,50 @@ void MainWindow::setupUi()
     auto *appLabel = new QLabel(QStringLiteral("Taskboard"), toolbar);
     appLabel->setStyleSheet(QStringLiteral(
         "color: #1a202c; font-size: 15px; font-weight: 700;"
-        " background: transparent; padding-left: 4px;"
+        " background: transparent; padding-left: 4px; padding-right: 12px;"
     ));
     toolbar->addWidget(appLabel);
 
-    // Flexible spacer
+    // Search bar (Item 6: Search text)
+    m_searchEdit = new QLineEdit(toolbar);
+    m_searchEdit->setPlaceholderText(QStringLiteral("Search tasks..."));
+    m_searchEdit->setClearButtonEnabled(true);
+    m_searchEdit->setFixedWidth(220);
+    m_searchEdit->setFixedHeight(32);
+    toolbar->addWidget(m_searchEdit);
+
+    // Spacing between search and priority
+    auto *gap = new QWidget(toolbar);
+    gap->setFixedWidth(8);
+    gap->setStyleSheet(QStringLiteral("background: transparent;"));
+    toolbar->addWidget(gap);
+
+    // Priority filter dropdown (Item 6: Filter by priority)
+    m_priorityFilter = new QComboBox(toolbar);
+    m_priorityFilter->addItem(QStringLiteral("All Priorities"), -1);
+    m_priorityFilter->addItem(QStringLiteral("Low"),            static_cast<int>(Task::Priority::Low));
+    m_priorityFilter->addItem(QStringLiteral("Medium"),         static_cast<int>(Task::Priority::Medium));
+    m_priorityFilter->addItem(QStringLiteral("High"),           static_cast<int>(Task::Priority::High));
+    m_priorityFilter->setFixedWidth(135);
+    m_priorityFilter->setFixedHeight(32);
+    toolbar->addWidget(m_priorityFilter);
+
+    // Flexible spacer pushing Add Task to the far right
     auto *spacer = new QWidget(toolbar);
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     spacer->setStyleSheet("background: transparent;");
     toolbar->addWidget(spacer);
 
-    // Add Task button – clean blue
+    // Add Task button – clean blue pill
     auto *addBtn = new QPushButton(QStringLiteral("+ Add Task"), toolbar);
+    addBtn->setCursor(Qt::PointingHandCursor);
+    addBtn->setFixedHeight(32);
     addBtn->setStyleSheet(QStringLiteral(
         "QPushButton {"
         "  background: #4299e1;"
         "  color: white;"
         "  border: none;"
-        "  padding: 7px 20px;"
+        "  padding: 0 20px;"
         "  border-radius: 7px;"
         "  font-weight: 600;"
         "  font-size: 13px;"
@@ -162,9 +190,31 @@ void MainWindow::connectSignals()
     connect(m_board.get(), &Board::taskUpdated, this, &MainWindow::onTaskUpdated);
     connect(m_board.get(), &Board::taskRemoved, this, &MainWindow::onTaskRemoved);
     connect(m_board.get(), &Board::boardReset,  this, &MainWindow::onBoardReset);
+
+    if (m_searchEdit) {
+        connect(m_searchEdit, &QLineEdit::textChanged, this, &MainWindow::onFilterChanged);
+    }
+    if (m_priorityFilter) {
+        connect(m_priorityFilter, &QComboBox::currentIndexChanged, this, &MainWindow::onFilterChanged);
+    }
+
     for (auto *col : m_columns) {
         connect(col, &BoardColumnWidget::editRequested,   this, &MainWindow::onEditRequested);
         connect(col, &BoardColumnWidget::deleteRequested, this, &MainWindow::onDeleteRequested);
+    }
+}
+
+void MainWindow::onFilterChanged()
+{
+    const QString query = m_searchEdit ? m_searchEdit->text() : QString();
+    std::optional<Task::Priority> priority;
+    if (m_priorityFilter && m_priorityFilter->currentIndex() > 0) {
+        priority = static_cast<Task::Priority>(m_priorityFilter->currentData().toInt());
+    }
+    for (auto *col : m_columns) {
+        if (col) {
+            col->setFilter(query, priority);
+        }
     }
 }
 
@@ -172,6 +222,7 @@ void MainWindow::onTaskAdded(const Task &task)
 {
     if (auto *col = columnFor(task.status()))
         col->addCard(task);
+    onFilterChanged();
     saveBoard();
 }
 
@@ -180,12 +231,14 @@ void MainWindow::onTaskUpdated(const Task &task)
     for (auto *col : m_columns) col->removeCard(task.id());
     if (auto *col = columnFor(task.status()))
         col->addCard(task);
+    onFilterChanged();
     saveBoard();
 }
 
 void MainWindow::onTaskRemoved(QUuid id)
 {
     for (auto *col : m_columns) col->removeCard(id);
+    onFilterChanged();
     saveBoard();
 }
 
@@ -194,6 +247,7 @@ void MainWindow::onBoardReset()
     m_columns[0]->rebuildAll(m_board->tasksByStatus(Task::Status::ToDo));
     m_columns[1]->rebuildAll(m_board->tasksByStatus(Task::Status::InProgress));
     m_columns[2]->rebuildAll(m_board->tasksByStatus(Task::Status::Done));
+    onFilterChanged();
 }
 
 void MainWindow::onAddTask()

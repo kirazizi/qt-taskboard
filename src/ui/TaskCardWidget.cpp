@@ -17,7 +17,6 @@ TaskCardWidget::TaskCardWidget(const Task &task, QWidget *parent)
 {
     setAttribute(Qt::WA_StyledBackground, true);
     setObjectName(QStringLiteral("taskCard"));
-    // White card, subtle border, hover adds a blue left accent line
     setStyleSheet(QStringLiteral(
         "#taskCard {"
         "  background: #ffffff;"
@@ -35,7 +34,7 @@ TaskCardWidget::TaskCardWidget(const Task &task, QWidget *parent)
 
     // ── Row 1: title + action buttons ────────────────────────────────────
     auto *topRow    = new QWidget(this);
-    topRow->setStyleSheet("background: transparent;");
+    topRow->setStyleSheet(QStringLiteral("background: transparent;"));
     auto *topLayout = new QHBoxLayout(topRow);
     topLayout->setContentsMargins(0, 0, 0, 0);
     topLayout->setSpacing(4);
@@ -46,9 +45,9 @@ TaskCardWidget::TaskCardWidget(const Task &task, QWidget *parent)
         "color: #2d3748; font-weight: 600; font-size: 13px; background: transparent;"
     ));
 
-    // Action bar – hidden until hover
+    // Action bar – opacity 0 when not hovered, revealed on hover without layout shifting
     m_actionBar = new QWidget(topRow);
-    m_actionBar->setStyleSheet("background: transparent;");
+    m_actionBar->setStyleSheet(QStringLiteral("background: transparent;"));
     m_actionBar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto *actionLayout = new QHBoxLayout(m_actionBar);
     actionLayout->setContentsMargins(0, 0, 0, 0);
@@ -90,7 +89,7 @@ TaskCardWidget::TaskCardWidget(const Task &task, QWidget *parent)
 
     // ── Row 2: priority badge + due date ─────────────────────────────────
     auto *metaRow    = new QWidget(this);
-    metaRow->setStyleSheet("background: transparent;");
+    metaRow->setStyleSheet(QStringLiteral("background: transparent;"));
     auto *metaLayout = new QHBoxLayout(metaRow);
     metaLayout->setContentsMargins(0, 0, 0, 0);
     metaLayout->setSpacing(8);
@@ -117,6 +116,22 @@ TaskCardWidget::TaskCardWidget(const Task &task, QWidget *parent)
 }
 
 QUuid TaskCardWidget::taskId() const { return m_task.id(); }
+
+bool TaskCardWidget::matches(const QString &query, std::optional<Task::Priority> priority) const
+{
+    if (priority.has_value() && m_task.priority() != *priority) {
+        return false;
+    }
+    const QString trimmed = query.trimmed();
+    if (!trimmed.isEmpty()) {
+        const bool titleMatch = m_task.title().contains(trimmed, Qt::CaseInsensitive);
+        const bool descMatch  = m_task.description().contains(trimmed, Qt::CaseInsensitive);
+        if (!titleMatch && !descMatch) {
+            return false;
+        }
+    }
+    return true;
+}
 
 void TaskCardWidget::updateFromTask(const Task &task)
 {

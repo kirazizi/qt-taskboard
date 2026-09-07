@@ -23,6 +23,31 @@ QList<Task> Board::tasksByStatus(Task::Status status) const
     return result;
 }
 
+QList<Task> Board::tasksFiltered(Task::Status status,
+                                 const QString &textQuery,
+                                 std::optional<Task::Priority> priority) const
+{
+    QList<Task> result;
+    const QString query = textQuery.trimmed();
+    for (const Task &t : m_tasks) {
+        if (t.status() != status) {
+            continue;
+        }
+        if (priority.has_value() && t.priority() != *priority) {
+            continue;
+        }
+        if (!query.isEmpty()) {
+            const bool titleMatch = t.title().contains(query, Qt::CaseInsensitive);
+            const bool descMatch  = t.description().contains(query, Qt::CaseInsensitive);
+            if (!titleMatch && !descMatch) {
+                continue;
+            }
+        }
+        result.append(t);
+    }
+    return result;
+}
+
 std::optional<Task> Board::findTask(QUuid id) const
 {
     for (const Task &t : m_tasks) {
@@ -67,7 +92,7 @@ void Board::moveTask(QUuid id, Task::Status newStatus)
     for (Task &t : m_tasks) {
         if (t.id() == id) {
             if (t.status() == newStatus) {
-                return;
+                return; // already in this status, preserve position
             }
             t.setStatus(newStatus);
             emit taskUpdated(t);

@@ -20,7 +20,7 @@ BoardColumnWidget::BoardColumnWidget(const QString &title,
     setAcceptDrops(true);
     setAttribute(Qt::WA_StyledBackground, true);
 
-    // White column card with rounded corners and drop shadow feel
+    // Frosted glass column card with rounded corners and soft border
     setObjectName(QStringLiteral("boardColumn"));
     setStyleSheet(QStringLiteral(
         "#boardColumn {"
@@ -102,6 +102,7 @@ void BoardColumnWidget::addCard(const Task &task)
             this, &BoardColumnWidget::editRequested);
     connect(card, &TaskCardWidget::deleteRequested,
             this, &BoardColumnWidget::deleteRequested);
+    card->setVisible(card->matches(m_filterQuery, m_filterPriority));
     m_cardsLayout->insertWidget(m_cardsLayout->count() - 1, card);
     updateCount();
 }
@@ -117,8 +118,23 @@ void BoardColumnWidget::removeCard(QUuid id)
 
 void BoardColumnWidget::updateCard(const Task &task)
 {
-    if (auto *card = findCard(task.id()))
+    if (auto *card = findCard(task.id())) {
         card->updateFromTask(task);
+        card->setVisible(card->matches(m_filterQuery, m_filterPriority));
+        updateCount();
+    }
+}
+
+void BoardColumnWidget::setFilter(const QString &textQuery, std::optional<Task::Priority> priority)
+{
+    m_filterQuery = textQuery;
+    m_filterPriority = priority;
+    for (int i = 0; i < m_cardsLayout->count(); ++i) {
+        if (auto *card = qobject_cast<TaskCardWidget *>(m_cardsLayout->itemAt(i)->widget())) {
+            card->setVisible(card->matches(m_filterQuery, m_filterPriority));
+        }
+    }
+    updateCount();
 }
 
 void BoardColumnWidget::rebuildAll(const QList<Task> &tasks)
@@ -144,7 +160,14 @@ TaskCardWidget *BoardColumnWidget::findCard(QUuid id) const
 
 void BoardColumnWidget::updateCount()
 {
-    m_countLabel->setText(QString::number(m_cardsLayout->count() - 1));
+    int visibleCount = 0;
+    for (int i = 0; i < m_cardsLayout->count(); ++i) {
+        auto *w = m_cardsLayout->itemAt(i)->widget();
+        if (qobject_cast<TaskCardWidget *>(w) && w->isVisible()) {
+            ++visibleCount;
+        }
+    }
+    m_countLabel->setText(QString::number(visibleCount));
 }
 
 void BoardColumnWidget::dragEnterEvent(QDragEnterEvent *event)
