@@ -2,6 +2,7 @@
 
 #include <QComboBox>
 #include <QDateEdit>
+#include <QDialog>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -12,41 +13,56 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 
-static const QString kInputStyle = QStringLiteral(
-    "background: #ffffff;"
-    "border: 1px solid #e2e8f0;"
-    "border-radius: 7px;"
-    "padding: 8px 12px;"
-    "color: #1a202c;"
-    "font-size: 13px;"
-);
-
-static const QString kLabelStyle = QStringLiteral(
+// ── Shared style constants ────────────────────────────────────────────────────
+static const char *kLabelStyle =
     "color: #718096; font-size: 12px; font-weight: 600;"
-    " background: transparent; border: none;"
-);
+    " background: transparent;";
+
+static const char *kInputStyle =
+    "QLineEdit, QTextEdit, QComboBox, QDateEdit {"
+    "  background: #f7fafc;"
+    "  border: 1px solid #e2e8f0;"
+    "  border-radius: 6px;"
+    "  padding: 5px 10px;"
+    "  color: #2d3748;"
+    "  font-size: 13px;"
+    "}"
+    "QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QDateEdit:focus {"
+    "  border: 1px solid #90cdf4;"
+    "  background: #ebf8ff;"
+    "}";
+
+// ── Constructors ─────────────────────────────────────────────────────────────
 
 TaskEditDialog::TaskEditDialog(QWidget *parent)
     : QDialog(parent)
 {
+    setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
+    setAttribute(Qt::WA_TranslucentBackground, false);
+    setModal(true);
     setWindowTitle(QStringLiteral("New Task"));
+    setFixedWidth(420);
     buildUi();
 }
 
 TaskEditDialog::TaskEditDialog(const Task &task, QWidget *parent)
     : QDialog(parent)
     , m_existingId(task.id())
+    , m_createdAt(task.createdAt())  // Item 8: preserve original creation time
 {
+    setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
+    setAttribute(Qt::WA_TranslucentBackground, false);
+    setModal(true);
     setWindowTitle(QStringLiteral("Edit Task"));
+    setFixedWidth(420);
     buildUi();
     populate(task);
 }
 
+// ── UI construction ───────────────────────────────────────────────────────────
+
 void TaskEditDialog::buildUi()
 {
-    setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
-    setAttribute(Qt::WA_StyledBackground, true);
-    setFixedSize(460, 400);
     setStyleSheet(QStringLiteral(
         "QDialog {"
         "  background: #ffffff;"
@@ -71,7 +87,7 @@ void TaskEditDialog::buildUi()
         " background: transparent; border: none;"
     ));
 
-    auto *closeBtn = new QPushButton(QStringLiteral("✕"), headerRow);
+    auto *closeBtn = new QPushButton(QStringLiteral("\u2715"), headerRow);
     closeBtn->setFixedSize(28, 28);
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(QStringLiteral(
@@ -137,6 +153,13 @@ void TaskEditDialog::buildUi()
     formLayout->addWidget(makeLabel(QStringLiteral("Due date")),    3, 0, Qt::AlignVCenter | Qt::AlignRight);
     formLayout->addWidget(m_dueDateEdit,                            3, 1);
 
+    // Tags (Item 7) -- comma-separated, e.g. "backend, urgent, refactor"
+    m_tagsEdit = new QLineEdit(this);
+    m_tagsEdit->setPlaceholderText(QStringLiteral("e.g. backend, urgent, refactor"));
+    m_tagsEdit->setStyleSheet(kInputStyle);
+    formLayout->addWidget(makeLabel(QStringLiteral("Tags")),        4, 0, Qt::AlignVCenter | Qt::AlignRight);
+    formLayout->addWidget(m_tagsEdit,                               4, 1);
+
     mainLayout->addLayout(formLayout);
 
     // ── Divider ──────────────────────────────────────────────────────────
@@ -196,6 +219,8 @@ void TaskEditDialog::populate(const Task &task)
             break;
         }
     }
+    // Item 7: join tags as comma-separated string for display
+    m_tagsEdit->setText(task.tags().join(QStringLiteral(", ")));
 }
 
 Task TaskEditDialog::task() const
@@ -203,19 +228,34 @@ Task TaskEditDialog::task() const
     const auto priority = static_cast<Task::Priority>(
         m_priorityCombo->currentData().toInt());
 
+    // Item 7: parse comma-separated tags, trim whitespace from each
+    QStringList tags;
+    for (const QString &raw : m_tagsEdit->text().split(QLatin1Char(','))) {
+        const QString t = raw.trimmed();
+        if (!t.isEmpty())
+            tags.append(t);
+    }
+
     if (m_existingId.has_value()) {
+        // Reconstruct via the "load" constructor to preserve createdAt (Item 8)
+        const QDateTime now = QDateTime::currentDateTime();
+        const QDateTime created = m_createdAt.value_or(now);
         return Task(m_existingId.value(),
                     m_titleEdit->text().trimmed(),
                     m_descEdit->toPlainText().trimmed(),
                     priority,
                     m_dueDateEdit->date(),
-                    Task::Status::ToDo);
+                    Task::Status::ToDo,  // status is managed by Board/column
+                    tags,
+                    created,
+                    now);
     }
     return Task(m_titleEdit->text().trimmed(),
                 m_descEdit->toPlainText().trimmed(),
                 priority,
                 m_dueDateEdit->date(),
-                Task::Status::ToDo);
+                Task::Status::ToDo,
+                tags);
 }
 
 void TaskEditDialog::mousePressEvent(QMouseEvent *event)

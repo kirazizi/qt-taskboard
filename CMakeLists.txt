@@ -17,6 +17,8 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS Core Widgets)
 set(CORE_SOURCES
     src/core/Task.cpp
     src/core/Board.cpp
+    src/core/Command.cpp        # Tier 2 Item 10: undo/redo command classes
+    src/core/CommandHistory.cpp # Tier 2 Item 10: undo/redo stack manager
 )
 
 set(DATA_SOURCES
@@ -25,10 +27,12 @@ set(DATA_SOURCES
 
 set(UI_SOURCES
     src/ui/TaskEditDialog.h
+    src/ui/TaskDetailsDialog.h  # Tier 2 Item 8: read-only details dialog
     src/ui/BoardColumnWidget.h
     src/ui/TaskCardWidget.h
     src/ui/MainWindow.h
     src/ui/TaskEditDialog.cpp
+    src/ui/TaskDetailsDialog.cpp
     src/ui/BoardColumnWidget.cpp
     src/ui/TaskCardWidget.cpp
     src/ui/MainWindow.cpp

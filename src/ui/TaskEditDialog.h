@@ -20,6 +20,10 @@ class QShowEvent;
  *   - Custom draggable header with title and close button.
  *   - Clean rounded card styling.
  *   - Safe minimize guard to prevent modal locking.
+ *
+ * Tier 2 additions:
+ *   - m_tagsEdit: comma-separated tag input (Item 7)
+ *   - Preserves createdAt/modifiedAt through edit cycle (Item 8)
  */
 class TaskEditDialog : public QDialog
 {
@@ -46,7 +50,10 @@ private:
     QTextEdit  *m_descEdit        = nullptr;
     QComboBox  *m_priorityCombo   = nullptr;
     QDateEdit  *m_dueDateEdit     = nullptr;
-    std::optional<QUuid> m_existingId;
+    QLineEdit  *m_tagsEdit        = nullptr;  // Item 7: comma-separated tags
+
+    std::optional<QUuid>     m_existingId;
+    std::optional<QDateTime> m_createdAt;   // Item 8: preserved through edits
 
     QPoint m_dragPos;
     bool   m_dragging = false;

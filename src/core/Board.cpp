@@ -25,24 +25,39 @@ QList<Task> Board::tasksByStatus(Task::Status status) const
 
 QList<Task> Board::tasksFiltered(Task::Status status,
                                  const QString &textQuery,
-                                 std::optional<Task::Priority> priority) const
+                                 std::optional<Task::Priority> priority,
+                                 const QStringList &tagFilter) const
 {
     QList<Task> result;
     const QString query = textQuery.trimmed();
+
     for (const Task &t : m_tasks) {
-        if (t.status() != status) {
+        if (t.status() != status)
             continue;
-        }
-        if (priority.has_value() && t.priority() != *priority) {
+
+        if (priority.has_value() && t.priority() != *priority)
             continue;
-        }
+
         if (!query.isEmpty()) {
             const bool titleMatch = t.title().contains(query, Qt::CaseInsensitive);
             const bool descMatch  = t.description().contains(query, Qt::CaseInsensitive);
-            if (!titleMatch && !descMatch) {
+            if (!titleMatch && !descMatch)
                 continue;
-            }
         }
+
+        // Item 7: tag filter -- task must have at least one matching tag
+        if (!tagFilter.isEmpty()) {
+            bool tagMatch = false;
+            for (const QString &filterTag : tagFilter) {
+                if (t.tags().contains(filterTag, Qt::CaseInsensitive)) {
+                    tagMatch = true;
+                    break;
+                }
+            }
+            if (!tagMatch)
+                continue;
+        }
+
         result.append(t);
     }
     return result;
@@ -91,9 +106,8 @@ void Board::moveTask(QUuid id, Task::Status newStatus)
 {
     for (Task &t : m_tasks) {
         if (t.id() == id) {
-            if (t.status() == newStatus) {
+            if (t.status() == newStatus)
                 return; // already in this status, preserve position
-            }
             t.setStatus(newStatus);
             emit taskUpdated(t);
             return;

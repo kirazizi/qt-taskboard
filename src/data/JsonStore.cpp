@@ -22,6 +22,17 @@ static QJsonObject taskToJson(const Task &t)
     obj[QStringLiteral("priority")]    = priorityToString(t.priority());
     obj[QStringLiteral("dueDate")]     = t.dueDate().toString(Qt::ISODate);
     obj[QStringLiteral("status")]      = statusToString(t.status());
+
+    // Item 7: tags as a JSON array of strings
+    QJsonArray tagsArr;
+    for (const QString &tag : t.tags())
+        tagsArr.append(tag);
+    obj[QStringLiteral("tags")] = tagsArr;
+
+    // Item 8: timestamps stored in ISO 8601 format (includes timezone offset)
+    obj[QStringLiteral("createdAt")]  = t.createdAt().toString(Qt::ISODate);
+    obj[QStringLiteral("modifiedAt")] = t.modifiedAt().toString(Qt::ISODate);
+
     return obj;
 }
 
@@ -33,7 +44,20 @@ static Task taskFromJson(const QJsonObject &obj)
     const auto     priority = priorityFromString(obj[QStringLiteral("priority")].toString());
     const QDate    dueDate  = QDate::fromString(obj[QStringLiteral("dueDate")].toString(), Qt::ISODate);
     const auto     status   = statusFromString(obj[QStringLiteral("status")].toString());
-    return Task(id, title, desc, priority, dueDate, status);
+
+    // Item 7: reconstruct tags from JSON array
+    QStringList tags;
+    for (const QJsonValue &v : obj[QStringLiteral("tags")].toArray())
+        tags.append(v.toString());
+
+    // Item 8: restore timestamps (fall back gracefully if missing in old files)
+    const QDateTime createdAt  = QDateTime::fromString(
+        obj[QStringLiteral("createdAt")].toString(), Qt::ISODate);
+    const QDateTime modifiedAt = QDateTime::fromString(
+        obj[QStringLiteral("modifiedAt")].toString(), Qt::ISODate);
+
+    return Task(id, title, desc, priority, dueDate, status,
+                tags, createdAt, modifiedAt);
 }
 
 // Public API
@@ -63,8 +87,10 @@ bool JsonStore::save(const Board &board, const QString &filePath)
 bool JsonStore::load(Board &board, const QString &filePath)
 {
     QFile file(filePath);
-    if (!file.exists())
-        return true;  // first run -- no save file yet
+    if (!file.exists()) {
+        board.setTasks({});  // emits boardReset to cleanly initialize empty columns
+        return true;
+    }
 
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning() << "JsonStore::load: cannot open" << filePath;

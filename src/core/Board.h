@@ -4,6 +4,7 @@
 
 #include <QList>
 #include <QObject>
+#include <QStringList>
 #include <optional>
 
 /**
@@ -33,10 +34,11 @@ public:
     // Tasks filtered by column (used by UI to populate each column)
     QList<Task> tasksByStatus(Task::Status status) const;
 
-    // Tasks filtered by column, search text query, and priority (Tier 1 Item 6)
+    // Tasks filtered by column, search text, priority, and tags (Items 6+7)
     QList<Task> tasksFiltered(Task::Status status,
                               const QString &textQuery = {},
-                              std::optional<Task::Priority> priority = std::nullopt) const;
+                              std::optional<Task::Priority> priority = std::nullopt,
+                              const QStringList &tagFilter = {}) const;
 
     // Look up a single task by its UUID (returns nullopt if not found)
     std::optional<Task> findTask(QUuid id) const;
@@ -48,7 +50,7 @@ public:
     void addTask(Task task);
     void removeTask(QUuid id);
     void updateTask(const Task &task);                // replaces by id
-    void moveTask(QUuid id, Task::Status newStatus); // drag & drop action
+    void moveTask(QUuid id, Task::Status newStatus);  // drag & drop action
 
     // Replace all tasks at once (used by JsonStore after loading)
     void setTasks(QList<Task> tasks);
