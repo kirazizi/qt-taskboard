@@ -4,46 +4,90 @@
 // Constructors
 // ---------------------------------------------------------------------
 
+// New task: generate UUID + capture creation time now
 Task::Task(QString title, QString description,
-           Priority priority, QDate dueDate, Status status)
-    : m_id(QUuid::createUuid())          // generate a fresh UUID
-    , m_title(std::move(title))          // move avoids a string copy
-    , m_description(std::move(description))
-    , m_priority(priority)
-    , m_dueDate(dueDate)
-    , m_status(status)
-{}
-
-Task::Task(QUuid id, QString title, QString description,
-           Priority priority, QDate dueDate, Status status)
-    : m_id(id)                            // restore the original ID from JSON
+           Priority priority, QDate dueDate, Status status,
+           QStringList tags)
+    : m_id(QUuid::createUuid())
     , m_title(std::move(title))
     , m_description(std::move(description))
     , m_priority(priority)
     , m_dueDate(dueDate)
     , m_status(status)
+    , m_tags(std::move(tags))
+    , m_createdAt(QDateTime::currentDateTime())
+    , m_modifiedAt(m_createdAt)
+{}
+
+// Load from JSON: restore all fields as-is (preserves original timestamps)
+Task::Task(QUuid id, QString title, QString description,
+           Priority priority, QDate dueDate, Status status,
+           QStringList tags,
+           QDateTime createdAt, QDateTime modifiedAt)
+    : m_id(id)
+    , m_title(std::move(title))
+    , m_description(std::move(description))
+    , m_priority(priority)
+    , m_dueDate(dueDate)
+    , m_status(status)
+    , m_tags(std::move(tags))
+    , m_createdAt(createdAt.isValid() ? createdAt : QDateTime::currentDateTime())
+    , m_modifiedAt(modifiedAt.isValid() ? modifiedAt : m_createdAt)
 {}
 
 // ---------------------------------------------------------------------
 // Getters
 // ---------------------------------------------------------------------
 
-QUuid    Task::id()          const { return m_id; }
-QString  Task::title()       const { return m_title; }
-QString  Task::description() const { return m_description; }
+QUuid       Task::id()          const { return m_id; }
+QString     Task::title()       const { return m_title; }
+QString     Task::description() const { return m_description; }
 Task::Priority Task::priority() const { return m_priority; }
-QDate    Task::dueDate()     const { return m_dueDate; }
-Task::Status Task::status()  const { return m_status; }
+QDate       Task::dueDate()     const { return m_dueDate; }
+Task::Status Task::status()     const { return m_status; }
+QStringList Task::tags()        const { return m_tags; }
+QDateTime   Task::createdAt()   const { return m_createdAt; }
+QDateTime   Task::modifiedAt()  const { return m_modifiedAt; }
 
 // ---------------------------------------------------------------------
-// Setters
+// Setters -- each updates m_modifiedAt (Item 8)
 // ---------------------------------------------------------------------
 
-void Task::setTitle(QString title)              { m_title = std::move(title); }
-void Task::setDescription(QString description)  { m_description = std::move(description); }
-void Task::setPriority(Priority priority)        { m_priority = priority; }
-void Task::setDueDate(QDate date)               { m_dueDate = date; }
-void Task::setStatus(Status status)             { m_status = status; }
+void Task::setTitle(QString title)
+{
+    m_title = std::move(title);
+    m_modifiedAt = QDateTime::currentDateTime();
+}
+
+void Task::setDescription(QString description)
+{
+    m_description = std::move(description);
+    m_modifiedAt = QDateTime::currentDateTime();
+}
+
+void Task::setPriority(Priority priority)
+{
+    m_priority = priority;
+    m_modifiedAt = QDateTime::currentDateTime();
+}
+
+void Task::setDueDate(QDate date)
+{
+    m_dueDate = date;
+    m_modifiedAt = QDateTime::currentDateTime();
+}
+
+void Task::setStatus(Status status)
+{
+    m_status = status;
+    m_modifiedAt = QDateTime::currentDateTime();
+}
+
+void Task::setTags(QStringList tags)
+{
+    m_tags = std::move(tags);
+    m_modifiedAt = QDateTime::currentDateTime();
+}
 
 // ---------------------------------------------------------------------
 // Enum <--> String helpers (used by JsonStore)
@@ -63,7 +107,7 @@ Task::Status statusFromString(const QString &s)
 {
     if (s == QStringLiteral("inprogress")) return Task::Status::InProgress;
     if (s == QStringLiteral("done"))       return Task::Status::Done;
-    return Task::Status::ToDo;              // default / unknown
+    return Task::Status::ToDo;
 }
 
 QString priorityToString(Task::Priority p)
@@ -80,5 +124,5 @@ Task::Priority priorityFromString(const QString &s)
 {
     if (s == QStringLiteral("low"))  return Task::Priority::Low;
     if (s == QStringLiteral("high")) return Task::Priority::High;
-    return Task::Priority::Medium;           // default / unknown
+    return Task::Priority::Medium;
 }

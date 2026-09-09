@@ -2,6 +2,7 @@
 
 #include "core/Task.h"
 #include <QList>
+#include <QStringList>
 #include <QWidget>
 #include <optional>
 
@@ -17,6 +18,10 @@ class QScrollArea;
  *
  * Ownership: Qt parent-child tree (parent = MainWindow).
  * Drop target: calls board->moveTask(id, status) on drop.
+ *
+ * Tier 2 additions:
+ *   - setFilter() now also accepts a QStringList tagFilter (Item 7)
+ *   - Bubbles detailsRequested signal up to MainWindow (Item 8)
  */
 class BoardColumnWidget : public QWidget
 {
@@ -32,12 +37,17 @@ public:
     void removeCard(QUuid id);
     void updateCard(const Task &task);
     void rebuildAll(const QList<Task> &tasks);
-    void setFilter(const QString &textQuery, std::optional<Task::Priority> priority);
+
+    // Item 7: extended filter includes tag filter
+    void setFilter(const QString &textQuery,
+                   std::optional<Task::Priority> priority,
+                   const QStringList &tagFilter = {});
 
 signals:
-    // Bubbled up from TaskCardWidget to MainWindow
     void editRequested(QUuid id);
     void deleteRequested(QUuid id);
+    void detailsRequested(QUuid id);  // Item 8
+    void moveRequested(QUuid id, Task::Status newStatus);  // Item 10
 
 protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
@@ -51,6 +61,7 @@ private:
     QLabel                       *m_countLabel;
     QString                       m_filterQuery;
     std::optional<Task::Priority> m_filterPriority;
+    QStringList                   m_filterTags;   // Item 7
 
     TaskCardWidget *findCard(QUuid id) const;
     void updateCount();

@@ -20,7 +20,6 @@ BoardColumnWidget::BoardColumnWidget(const QString &title,
     setAcceptDrops(true);
     setAttribute(Qt::WA_StyledBackground, true);
 
-    // Frosted glass column card with rounded corners and soft border
     setObjectName(QStringLiteral("boardColumn"));
     setStyleSheet(QStringLiteral(
         "#boardColumn {"
@@ -55,18 +54,14 @@ BoardColumnWidget::BoardColumnWidget(const QString &title,
         " background: transparent;"
     ));
 
-    // Count badge – simple pill
     m_countLabel = new QLabel(QStringLiteral("0"), header);
     m_countLabel->setAlignment(Qt::AlignCenter);
     m_countLabel->setFixedHeight(20);
     m_countLabel->setMinimumWidth(24);
     m_countLabel->setStyleSheet(QStringLiteral(
-        "background: #e2e8f0;"
-        "color: #4a5568;"
-        "border-radius: 10px;"
-        "font-size: 11px;"
-        "font-weight: 600;"
-        "padding: 0 7px;"
+        "background: #e2e8f0; color: #4a5568;"
+        " border-radius: 10px; font-size: 11px; font-weight: 600;"
+        " padding: 0 7px;"
     ));
 
     headerLayout->addWidget(titleLabel);
@@ -102,7 +97,9 @@ void BoardColumnWidget::addCard(const Task &task)
             this, &BoardColumnWidget::editRequested);
     connect(card, &TaskCardWidget::deleteRequested,
             this, &BoardColumnWidget::deleteRequested);
-    card->setVisible(card->matches(m_filterQuery, m_filterPriority));
+    connect(card, &TaskCardWidget::detailsRequested,
+            this, &BoardColumnWidget::detailsRequested);  // Item 8
+    card->setVisible(card->matches(m_filterQuery, m_filterPriority, m_filterTags));
     m_cardsLayout->insertWidget(m_cardsLayout->count() - 1, card);
     updateCount();
 }
@@ -110,6 +107,7 @@ void BoardColumnWidget::addCard(const Task &task)
 void BoardColumnWidget::removeCard(QUuid id)
 {
     if (auto *card = findCard(id)) {
+        card->hide();
         m_cardsLayout->removeWidget(card);
         card->deleteLater();
         updateCount();
@@ -120,18 +118,22 @@ void BoardColumnWidget::updateCard(const Task &task)
 {
     if (auto *card = findCard(task.id())) {
         card->updateFromTask(task);
-        card->setVisible(card->matches(m_filterQuery, m_filterPriority));
+        card->setVisible(card->matches(m_filterQuery, m_filterPriority, m_filterTags));
         updateCount();
     }
 }
 
-void BoardColumnWidget::setFilter(const QString &textQuery, std::optional<Task::Priority> priority)
+void BoardColumnWidget::setFilter(const QString &textQuery,
+                                  std::optional<Task::Priority> priority,
+                                  const QStringList &tagFilter)
 {
-    m_filterQuery = textQuery;
+    m_filterQuery    = textQuery;
     m_filterPriority = priority;
+    m_filterTags     = tagFilter;  // Item 7
+
     for (int i = 0; i < m_cardsLayout->count(); ++i) {
         if (auto *card = qobject_cast<TaskCardWidget *>(m_cardsLayout->itemAt(i)->widget())) {
-            card->setVisible(card->matches(m_filterQuery, m_filterPriority));
+            card->setVisible(card->matches(m_filterQuery, m_filterPriority, m_filterTags));
         }
     }
     updateCount();
@@ -141,7 +143,10 @@ void BoardColumnWidget::rebuildAll(const QList<Task> &tasks)
 {
     while (m_cardsLayout->count() > 1) {
         auto *item = m_cardsLayout->takeAt(0);
-        if (item->widget()) item->widget()->deleteLater();
+        if (item->widget()) {
+            item->widget()->hide();
+            item->widget()->deleteLater();
+        }
         delete item;
     }
     for (const Task &t : tasks)
@@ -163,29 +168,29 @@ void BoardColumnWidget::updateCount()
     int visibleCount = 0;
     for (int i = 0; i < m_cardsLayout->count(); ++i) {
         auto *w = m_cardsLayout->itemAt(i)->widget();
-        if (qobject_cast<TaskCardWidget *>(w) && w->isVisible()) {
+        if (qobject_cast<TaskCardWidget *>(w) && !w->isHidden())
             ++visibleCount;
-        }
     }
     m_countLabel->setText(QString::number(visibleCount));
 }
 
 void BoardColumnWidget::dragEnterEvent(QDragEnterEvent *event)
 {
-    if (event->mimeData()->hasText())
+    if (event->mimeData() && event->mimeData()->hasText())
         event->acceptProposedAction();
 }
 
 void BoardColumnWidget::dragMoveEvent(QDragMoveEvent *event)
 {
-    if (event->mimeData()->hasText())
+    if (event->mimeData() && event->mimeData()->hasText())
         event->acceptProposedAction();
 }
 
 void BoardColumnWidget::dropEvent(QDropEvent *event)
 {
+    if (!event->mimeData() || !event->mimeData()->hasText()) return;
     const QUuid id = QUuid::fromString(event->mimeData()->text());
     if (id.isNull()) return;
-    m_board->moveTask(id, m_status);
     event->acceptProposedAction();
+    emit moveRequested(id, m_status);
 }
