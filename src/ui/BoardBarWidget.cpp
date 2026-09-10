@@ -5,8 +5,8 @@
 
 #include <QHBoxLayout>
 #include <QInputDialog>
-#include <QPushButton>
 #include <QMessageBox>
+#include <QPushButton>
 
 BoardBarWidget::BoardBarWidget(BoardManager *manager, QWidget *parent)
     : QWidget(parent)
@@ -23,7 +23,7 @@ BoardBarWidget::BoardBarWidget(BoardManager *manager, QWidget *parent)
     m_layout->setSpacing(6);
     m_layout->addStretch();
 
-    // "+" new board button (stays at the end)
+    // "+" new board button (stays at the right end)
     auto *addBtn = new QPushButton(QStringLiteral("+"), this);
     addBtn->setToolTip(QStringLiteral("New Board"));
     addBtn->setFixedSize(28, 28);
@@ -44,64 +44,145 @@ BoardBarWidget::BoardBarWidget(BoardManager *manager, QWidget *parent)
 
 void BoardBarWidget::refresh()
 {
-    // Remove all existing tab buttons (leave stretch + add-button)
-    for (auto *btn : m_tabs) {
-        m_layout->removeWidget(btn);
-        btn->deleteLater();
+    // Remove all existing tab containers
+    for (auto *w : m_tabs) {
+        m_layout->removeWidget(w);
+        w->deleteLater();
     }
     m_tabs.clear();
 
     const int active = m_manager->activeIndex();
     const int total  = m_manager->count();
 
-    // Insert tabs before the stretch (index 0 is stretch, so insert at front)
     for (int i = 0; i < total; ++i) {
-        const QString name = m_manager->metaAt(i).name;
-        const bool isActive = (i == active);
+        const QString name     = m_manager->metaAt(i).name;
+        const bool    isActive = (i == active);
+        const bool    canDelete = (total > 1);  // must keep at least 1 board
 
-        auto *tab = new QPushButton(name, this);
-        tab->setCursor(Qt::PointingHandCursor);
-        tab->setFixedHeight(28);
-        tab->setCheckable(true);
-        tab->setChecked(isActive);
+        // ── Tab container: [  Board Name  ][x]  ──────────────────────────────
+        auto *chip = new QWidget(this);
+        chip->setFixedHeight(28);
+        chip->setCursor(Qt::ArrowCursor);
+
+        auto *chipLayout = new QHBoxLayout(chip);
+        chipLayout->setContentsMargins(0, 0, 0, 0);
+        chipLayout->setSpacing(0);
+
+        // Board name button (left part of chip)
+        auto *nameBtn = new QPushButton(name, chip);
+        nameBtn->setCursor(Qt::PointingHandCursor);
+        nameBtn->setFixedHeight(28);
+        nameBtn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
         if (isActive) {
-            tab->setStyleSheet(QStringLiteral(
+            nameBtn->setStyleSheet(QStringLiteral(
                 "QPushButton {"
                 "  background: #4299e1; color: white;"
-                "  border: none; border-radius: 6px;"
-                "  padding: 0 14px; font-weight: 600;"
+                "  border: none;"
+                "  border-radius: %1px 0px 0px %1px;"
+                "  padding: 0 10px 0 14px; font-weight: 600;"
                 "}"
-            ));
+            ).arg(canDelete ? 6 : 6));
         } else {
-            tab->setStyleSheet(QStringLiteral(
+            nameBtn->setStyleSheet(QStringLiteral(
                 "QPushButton {"
                 "  background: transparent; color: #4a5568;"
-                "  border: 1px solid #e2e8f0; border-radius: 6px;"
-                "  padding: 0 14px;"
+                "  border: 1px solid #e2e8f0;"
+                "  border-right: none;"
+                "  border-radius: 6px 0px 0px 6px;"
+                "  padding: 0 10px 0 14px;"
                 "}"
                 "QPushButton:hover { background: #f7fafc; color: #2d3748; }"
             ));
         }
 
         // Switch board on click
-        connect(tab, &QPushButton::clicked, this, [this, i]() {
+        connect(nameBtn, &QPushButton::clicked, this, [this, i]() {
             m_manager->setActiveIndex(i);
         });
 
         // Double-click to rename
-        tab->installEventFilter(this);
+        nameBtn->installEventFilter(this);
 
-        m_layout->insertWidget(i, tab);
-        m_tabs.append(tab);
+        chipLayout->addWidget(nameBtn);
+
+        // Delete (×) button (right part of chip)
+        auto *delBtn = new QPushButton(QStringLiteral("\u00D7"), chip); // ×
+        delBtn->setFixedSize(18, 28);
+        delBtn->setCursor(Qt::PointingHandCursor);
+        delBtn->setToolTip(QStringLiteral("Delete this board"));
+        delBtn->setVisible(canDelete); // hide when only 1 board remains
+
+        if (isActive) {
+            delBtn->setStyleSheet(QStringLiteral(
+                "QPushButton {"
+                "  background: #3182ce; color: rgba(255,255,255,0.8);"
+                "  border: none; border-left: 1px solid rgba(255,255,255,0.25);"
+                "  border-radius: 0px 6px 6px 0px;"
+                "  font-size: 13px; padding: 0;"
+                "}"
+                "QPushButton:hover { background: #2b6cb0; color: white; }"
+            ));
+        } else {
+            delBtn->setStyleSheet(QStringLiteral(
+                "QPushButton {"
+                "  background: transparent; color: #a0aec0;"
+                "  border: 1px solid #e2e8f0; border-left: none;"
+                "  border-radius: 0px 6px 6px 0px;"
+                "  font-size: 13px; padding: 0;"
+                "}"
+                "QPushButton:hover { background: #fff5f5; color: #c53030; border-color: #fed7d7; }"
+            ));
+        }
+
+        connect(delBtn, &QPushButton::clicked, this, [this, i]() {
+            const QString boardName = m_manager->metaAt(i).name;
+            const int taskCount = m_manager->boardAt(i)
+                                      ? m_manager->boardAt(i)->tasks().size()
+                                      : 0;
+
+            // Confirm before deleting non-empty boards
+            if (taskCount > 0) {
+                const auto answer = QMessageBox::question(
+                    this,
+                    QStringLiteral("Delete Board"),
+                    QStringLiteral(
+                        "Delete \"%1\"?\n"
+                        "This board has %2 task(s). They will be permanently removed."
+                    ).arg(boardName).arg(taskCount),
+                    QMessageBox::Yes | QMessageBox::Cancel,
+                    QMessageBox::Cancel
+                );
+                if (answer != QMessageBox::Yes) return;
+            }
+            m_manager->removeBoard(i);
+        });
+
+        chipLayout->addWidget(delBtn);
+
+        // If not deletable (only board), make name button fully rounded
+        if (!canDelete) {
+            nameBtn->setStyleSheet(nameBtn->styleSheet()
+                .replace(QStringLiteral("border-radius: 6px 0px 0px 6px;"),
+                         QStringLiteral("border-radius: 6px;"))
+                .replace(QStringLiteral("border-right: none;"), QString())
+            );
+        }
+
+        m_layout->insertWidget(i, chip);
+        m_tabs.append(chip);
     }
 }
 
 bool BoardBarWidget::eventFilter(QObject *obj, QEvent *event)
 {
     if (event->type() == QEvent::MouseButtonDblClick) {
+        // Find which tab's nameBtn was double-clicked
         for (int i = 0; i < m_tabs.size(); ++i) {
-            if (m_tabs[i] == obj) {
+            // nameBtn is the first child of the chip container
+            auto *chip    = m_tabs[i];
+            auto *nameBtn = chip->findChild<QPushButton *>();
+            if (nameBtn && nameBtn == obj) {
                 bool ok = false;
                 const QString current = m_manager->metaAt(i).name;
                 const QString newName = QInputDialog::getText(

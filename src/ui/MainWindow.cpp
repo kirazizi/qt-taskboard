@@ -99,7 +99,14 @@ MainWindow::MainWindow(QWidget *parent)
     setupUi();
     connectSignals();
 
-    // Item 11: load all boards via multi-board API (auto-migrates old format)
+    // Item 11: load all boards via multi-board API (auto-migrates old format).
+    // IMPORTANT: disconnect from the temporary default board BEFORE load() calls
+    // setBoardsFromLoad() which destroys it. Otherwise switchBoard() would try to
+    // disconnect a dangling m_activeBoard pointer -> segfault.
+    if (m_activeBoard) {
+        disconnect(m_activeBoard, nullptr, this, nullptr);
+        m_activeBoard = nullptr;
+    }
     JsonStore::load(*m_manager, m_saveFile);
 
     // Item 9: restore window geometry from last session
@@ -329,6 +336,7 @@ void MainWindow::connectBoardSignals()
     Board *board = activeBoard();
     if (!board) return;
 
+    m_activeBoard = board;  // track so switchBoard() can safely disconnect later
     connect(board, &Board::taskAdded,   this, &MainWindow::onTaskAdded);
     connect(board, &Board::taskUpdated, this, &MainWindow::onTaskUpdated);
     connect(board, &Board::taskRemoved, this, &MainWindow::onTaskRemoved);
@@ -393,9 +401,12 @@ void MainWindow::connectSignals()
 
 void MainWindow::switchBoard(int index)
 {
-    // Disconnect old board signals
-    if (Board *old = m_columns[0]->board()) {
-        disconnect(old, nullptr, this, nullptr);
+    // Safe disconnect: use tracked m_activeBoard instead of m_columns[0]->board().
+    // m_columns[0]->board() may be a dangling pointer if the board was just deleted
+    // (BoardManager::removeBoard destroys the unique_ptr before emitting the signal).
+    if (m_activeBoard) {
+        disconnect(m_activeBoard, nullptr, this, nullptr);
+        m_activeBoard = nullptr;
     }
 
     Board *board = m_manager->boardAt(index);

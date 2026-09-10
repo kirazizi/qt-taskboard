@@ -79,5 +79,6 @@ private:
     QPushButton    *m_themeToggleBtn  = nullptr;  // Item 14
     QPushButton    *m_statsBtn         = nullptr;  // Item 12
 
+    Board   *m_activeBoard = nullptr;  // tracked separately to safely disconnect on board delete
     QString m_saveFile;
 };
