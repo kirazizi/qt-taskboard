@@ -3,5 +3,7 @@
     <file alias="background.png">resources/images/background.png</file>
     <file alias="images/background.png">resources/images/background.png</file>
     <file alias="styles/theme.qss">resources/styles/theme.qss</file>
+    <file alias="styles/light.qss">resources/styles/light.qss</file>
+    <file alias="styles/dark.qss">resources/styles/dark.qss</file>
 </qresource>
 </RCC>

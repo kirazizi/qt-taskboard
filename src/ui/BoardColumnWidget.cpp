@@ -194,3 +194,16 @@ void BoardColumnWidget::dropEvent(QDropEvent *event)
     event->acceptProposedAction();
     emit moveRequested(id, m_status);
 }
+
+// Item 11: Switch to a new board and rebuild columns
+void BoardColumnWidget::setBoardAndRebuild(Board *board, const QList<Task> &tasks)
+{
+    m_board = board;
+    rebuildAll(tasks);
+}
+
+// Item 11: expose board pointer so MainWindow can disconnect old signals
+Board *BoardColumnWidget::board() const
+{
+    return m_board;
+}

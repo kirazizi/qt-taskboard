@@ -5,6 +5,12 @@
 // ---------------------------------------------------------------------
 
 // New task: generate UUID + capture creation time now
+
+// Item 13: default constructor for Q_DECLARE_METATYPE compatibility
+Task::Task()
+    : Task(QStringLiteral("Untitled"))
+{}
+
 Task::Task(QString title, QString description,
            Priority priority, QDate dueDate, Status status,
            QStringList tags)

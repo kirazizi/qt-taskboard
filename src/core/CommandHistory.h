@@ -26,6 +26,8 @@ public:
 
     bool canUndo() const;
     bool canRedo() const;
+    // Item 11: clear all history when switching boards
+    void clear();
 
 signals:
     void canUndoChanged(bool enabled);

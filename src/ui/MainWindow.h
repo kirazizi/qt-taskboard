@@ -1,7 +1,8 @@
 #pragma once
 
-#include "core/Board.h"
+#include "core/BoardManager.h"
 #include "core/CommandHistory.h"
+#include "core/ThemeManager.h"
 #include "ui/BoardColumnWidget.h"
 
 #include <QMainWindow>
@@ -13,19 +14,19 @@
 class QLineEdit;
 class QComboBox;
 class QPushButton;
+class BoardBarWidget;
 
 /**
  * MainWindow -- top-level application window.
  *
- * Owns the Board (core), CommandHistory (core), and three BoardColumnWidgets.
+ * Owns a BoardManager (all boards) and a per-board CommandHistory.
  * All task mutations go through CommandHistory so they are undoable.
  *
- * Tier 2 Item 10 design:
- *   - Board's raw addTask/removeTask/updateTask/moveTask are called ONLY via
- *     Command objects pushed to CommandHistory.
- *   - This keeps Board clean (no history coupling) and keeps command logic
- *     in core/ where it belongs.
- *   - Ctrl+Z / Ctrl+Y keyboard shortcuts + toolbar buttons wired to undo/redo.
+ * Tier 3 Item 11: BoardManager replaces the single Board.
+ *   - switchBoard() tears down old Board connections and builds new ones.
+ *   - BoardBarWidget sits between the toolbar and the column canvas.
+ *
+ * Tier 3 Item 14: ThemeManager applies the active QSS on startup and on toggle.
  */
 class MainWindow : public QMainWindow
 {
@@ -36,36 +37,47 @@ public:
     ~MainWindow() override;
 
 protected:
-    void closeEvent(QCloseEvent *event) override;  // Item 9: save geometry
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
     void onFilterChanged();
     void onAddTask();
     void onEditRequested(QUuid id);
     void onDeleteRequested(QUuid id);
-    void onDetailsRequested(QUuid id);  // Item 8
-    void onMoveRequested(QUuid id, Task::Status newStatus);  // Item 10
+    void onDetailsRequested(QUuid id);
+    void onMoveRequested(QUuid id, Task::Status newStatus);
 
     void onTaskAdded(const Task &task);
     void onTaskUpdated(const Task &task);
     void onTaskRemoved(QUuid id);
     void onBoardReset();
 
+    // Item 11: switch to a different board by index
+    void switchBoard(int index);
+
 private:
     void setupUi();
+    void connectBoardSignals();  // (re-)connect m_board signals after switch
     void connectSignals();
-    void saveBoard();
+    void saveAll();
     void rebuildTagFilterCombo();
     BoardColumnWidget *columnFor(Task::Status status) const;
+    Board *activeBoard() const;
 
-    std::unique_ptr<Board>             m_board;
-    std::unique_ptr<CommandHistory>    m_history;   // Item 10
+    // ── Core ─────────────────────────────────────────────────────────────────
+    std::unique_ptr<BoardManager>    m_manager;   // Item 11: owns all boards
+    std::unique_ptr<CommandHistory>  m_history;   // Item 10: per-board undo stack
 
+    // ── UI ───────────────────────────────────────────────────────────────────
     std::array<BoardColumnWidget *, 3> m_columns{};
-    QLineEdit  *m_searchEdit      = nullptr;
-    QComboBox  *m_priorityFilter  = nullptr;
-    QComboBox  *m_tagFilter       = nullptr;  // Item 7
-    QPushButton *m_undoBtn        = nullptr;  // Item 10
-    QPushButton *m_redoBtn        = nullptr;  // Item 10
-    QString     m_saveFile;
+    BoardBarWidget *m_boardBar        = nullptr;  // Item 11
+    QLineEdit      *m_searchEdit      = nullptr;
+    QComboBox      *m_priorityFilter  = nullptr;
+    QComboBox      *m_tagFilter       = nullptr;
+    QPushButton    *m_undoBtn         = nullptr;
+    QPushButton    *m_redoBtn         = nullptr;
+    QPushButton    *m_themeToggleBtn  = nullptr;  // Item 14
+    QPushButton    *m_statsBtn         = nullptr;  // Item 12
+
+    QString m_saveFile;
 };

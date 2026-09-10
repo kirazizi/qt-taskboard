@@ -57,3 +57,12 @@ void CommandHistory::redo(Board &board)
 
 bool CommandHistory::canUndo() const { return !m_undoStack.empty(); }
 bool CommandHistory::canRedo() const { return !m_redoStack.empty(); }
+
+// Item 11: clear all history (called when switching boards)
+void CommandHistory::clear()
+{
+    m_undoStack.clear();
+    m_redoStack.clear();
+    emit canUndoChanged(false);
+    emit canRedoChanged(false);
+}

@@ -44,6 +44,9 @@ public:
     // Constructors
     // ----------------------------------------------------------
 
+    // Default constructor (required for QVariant meta-type registration -- Item 13)
+    Task();
+
     // Create a new task with a fresh UUID (used when user clicks "Add")
     explicit Task(QString title,
                   QString description = {},
@@ -103,3 +106,6 @@ Task::Status   statusFromString(const QString &s);
 
 QString        priorityToString(Task::Priority p);
 Task::Priority priorityFromString(const QString &s);
+
+// Item 13: needed so Task can be stored in QVariant for model roles
+Q_DECLARE_METATYPE(Task)

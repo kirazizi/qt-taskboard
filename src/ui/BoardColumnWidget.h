@@ -37,6 +37,10 @@ public:
     void removeCard(QUuid id);
     void updateCard(const Task &task);
     void rebuildAll(const QList<Task> &tasks);
+    // Item 11: switch to a new board and immediately rebuild cards
+    void setBoardAndRebuild(Board *board, const QList<Task> &tasks);
+    // Item 11: accessor so MainWindow can disconnect old board signals
+    Board *board() const;
 
     // Item 7: extended filter includes tag filter
     void setFilter(const QString &textQuery,

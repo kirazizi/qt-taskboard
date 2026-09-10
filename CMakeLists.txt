@@ -19,6 +19,10 @@ set(CORE_SOURCES
     src/core/Board.cpp
     src/core/Command.cpp        # Tier 2 Item 10: undo/redo command classes
     src/core/CommandHistory.cpp # Tier 2 Item 10: undo/redo stack manager
+    src/core/ThemeManager.cpp   # Tier 3 Item 14: runtime theme switching
+    src/core/BoardManager.cpp   # Tier 3 Item 11: multiple boards
+    src/core/TaskListModel.cpp      # Tier 3 Item 13: QAbstractListModel
+    src/core/TaskSortFilterModel.cpp # Tier 3 Item 13: QSortFilterProxyModel
 )
 
 set(DATA_SOURCES
@@ -30,11 +34,19 @@ set(UI_SOURCES
     src/ui/TaskDetailsDialog.h  # Tier 2 Item 8: read-only details dialog
     src/ui/BoardColumnWidget.h
     src/ui/TaskCardWidget.h
+    src/ui/BoardBarWidget.h     # Tier 3 Item 11: board tab strip
     src/ui/MainWindow.h
     src/ui/TaskEditDialog.cpp
     src/ui/TaskDetailsDialog.cpp
     src/ui/BoardColumnWidget.cpp
     src/ui/TaskCardWidget.cpp
+    src/ui/BoardBarWidget.cpp   # Tier 3 Item 11
+    src/ui/ChartWidget.h
+    src/ui/ChartWidget.cpp      # Tier 3 Item 12: animated bar chart
+    src/ui/StatsDialog.h
+    src/ui/StatsDialog.cpp      # Tier 3 Item 12: statistics dashboard
+    src/ui/TaskCardDelegate.h
+    src/ui/TaskCardDelegate.cpp  # Tier 3 Item 13: QStyledItemDelegate for cards
     src/ui/MainWindow.cpp
 )
 

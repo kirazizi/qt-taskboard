@@ -1,11 +1,15 @@
 #include "ui/MainWindow.h"
 
 #include "core/Board.h"
+#include "core/BoardManager.h"
 #include "core/Command.h"
 #include "core/CommandHistory.h"
 #include "core/Task.h"
+#include "core/ThemeManager.h"
 #include "data/JsonStore.h"
+#include "ui/BoardBarWidget.h"
 #include "ui/BoardColumnWidget.h"
+#include "ui/StatsDialog.h"
 #include "ui/TaskDetailsDialog.h"
 #include "ui/TaskEditDialog.h"
 
@@ -86,25 +90,30 @@ private:
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , m_board(std::make_unique<Board>())
-    , m_history(std::make_unique<CommandHistory>())  // Item 10
+    , m_manager(std::make_unique<BoardManager>())
+    , m_history(std::make_unique<CommandHistory>())
 {
     m_saveFile = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
                  + QStringLiteral("/board.json");
+
     setupUi();
     connectSignals();
-    JsonStore::load(*m_board, m_saveFile);
+
+    // Item 11: load all boards via multi-board API (auto-migrates old format)
+    JsonStore::load(*m_manager, m_saveFile);
 
     // Item 9: restore window geometry from last session
     QSettings settings(QStringLiteral("qt-taskboard"), QStringLiteral("qt-taskboard"));
     const QByteArray geo = settings.value(QStringLiteral("window/geometry")).toByteArray();
     if (!geo.isEmpty())
         restoreGeometry(geo);
+
+    // Item 14: restore last theme before showing window
+    ThemeManager::apply(ThemeManager::current());
 }
 
 MainWindow::~MainWindow() = default;
 
-// Item 9: save geometry + filter state
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     QSettings settings(QStringLiteral("qt-taskboard"), QStringLiteral("qt-taskboard"));
@@ -118,11 +127,25 @@ void MainWindow::closeEvent(QCloseEvent *event)
     QMainWindow::closeEvent(event);
 }
 
+// ── Private helpers ───────────────────────────────────────────────────────────
+
+Board *MainWindow::activeBoard() const
+{
+    return m_manager->activeBoard();
+}
+
+void MainWindow::saveAll()
+{
+    JsonStore::save(*m_manager, m_saveFile);
+}
+
+// ── setupUi ──────────────────────────────────────────────────────────────────
+
 void MainWindow::setupUi()
 {
     setWindowTitle(QStringLiteral("Taskboard"));
-    setMinimumSize(900, 580);
-    resize(1200, 720);
+    setMinimumSize(900, 600);
+    resize(1200, 760);
 
     // ── Toolbar ──────────────────────────────────────────────────────────
     auto *toolbar = addToolBar(QStringLiteral("Main"));
@@ -142,7 +165,6 @@ void MainWindow::setupUi()
         return g;
     };
 
-    // Search bar
     m_searchEdit = new QLineEdit(toolbar);
     m_searchEdit->setPlaceholderText(QStringLiteral("Search tasks..."));
     m_searchEdit->setClearButtonEnabled(true);
@@ -151,7 +173,6 @@ void MainWindow::setupUi()
     toolbar->addWidget(m_searchEdit);
     toolbar->addWidget(makeGap(8));
 
-    // Priority filter
     m_priorityFilter = new QComboBox(toolbar);
     m_priorityFilter->addItem(QStringLiteral("All Priorities"), -1);
     m_priorityFilter->addItem(QStringLiteral("Low"),    static_cast<int>(Task::Priority::Low));
@@ -162,7 +183,6 @@ void MainWindow::setupUi()
     toolbar->addWidget(m_priorityFilter);
     toolbar->addWidget(makeGap(8));
 
-    // Tag filter (Item 7)
     m_tagFilter = new QComboBox(toolbar);
     m_tagFilter->addItem(QStringLiteral("All Tags"), QString());
     m_tagFilter->setFixedWidth(130);
@@ -170,7 +190,6 @@ void MainWindow::setupUi()
     toolbar->addWidget(m_tagFilter);
     toolbar->addWidget(makeGap(16));
 
-    // Undo / Redo buttons (Item 10)
     const QString undoRedoStyle = QStringLiteral(
         "QPushButton {"
         "  background: transparent; border: 1px solid #e2e8f0;"
@@ -181,7 +200,7 @@ void MainWindow::setupUi()
         "QPushButton:disabled { color: #cbd5e0; border-color: #edf2f7; }"
     );
 
-    m_undoBtn = new QPushButton(QStringLiteral("\u21B6"), toolbar);  // ↶
+    m_undoBtn = new QPushButton(QStringLiteral("\u21B6"), toolbar);
     m_undoBtn->setToolTip(QStringLiteral("Undo  (Ctrl+Z)"));
     m_undoBtn->setCursor(Qt::PointingHandCursor);
     m_undoBtn->setFixedHeight(32);
@@ -191,7 +210,7 @@ void MainWindow::setupUi()
     toolbar->addWidget(m_undoBtn);
     toolbar->addWidget(makeGap(4));
 
-    m_redoBtn = new QPushButton(QStringLiteral("\u21B7"), toolbar);  // ↷
+    m_redoBtn = new QPushButton(QStringLiteral("\u21B7"), toolbar);
     m_redoBtn->setToolTip(QStringLiteral("Redo  (Ctrl+Y)"));
     m_redoBtn->setCursor(Qt::PointingHandCursor);
     m_redoBtn->setFixedHeight(32);
@@ -205,6 +224,56 @@ void MainWindow::setupUi()
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     spacer->setStyleSheet(QStringLiteral("background: transparent;"));
     toolbar->addWidget(spacer);
+
+    // Item 12: Stats dashboard button (Ctrl+Shift+S)
+    m_statsBtn = new QPushButton(QStringLiteral("\u2022\u2022\u2022"), toolbar); // bullet chart icon
+    m_statsBtn->setToolTip(QStringLiteral("Board Statistics  (Ctrl+Shift+S)"));
+    m_statsBtn->setCursor(Qt::PointingHandCursor);
+    m_statsBtn->setFixedHeight(32);
+    m_statsBtn->setFixedWidth(40);
+    m_statsBtn->setText(QStringLiteral("\u25A3")); // filled square chart symbol
+    m_statsBtn->setStyleSheet(QStringLiteral(
+        "QPushButton {"
+        "  background: transparent; border: 1px solid #e2e8f0;"
+        "  border-radius: 6px; padding: 0; font-size: 15px; color: #4a5568;"
+        "}"
+        "QPushButton:hover { background: #edf2f7; border-color: #90cdf4; }"
+    ));
+    connect(m_statsBtn, &QPushButton::clicked, this, [this]() {
+        if (auto *b = activeBoard()) {
+            StatsDialog dlg(*b, this);
+            dlg.exec();
+        }
+    });
+    toolbar->addWidget(m_statsBtn);
+    toolbar->addWidget(makeGap(8));
+
+    // Item 14: Theme toggle button
+    m_themeToggleBtn = new QPushButton(toolbar);
+    m_themeToggleBtn->setToolTip(QStringLiteral("Toggle Dark / Light Mode"));
+    m_themeToggleBtn->setCursor(Qt::PointingHandCursor);
+    m_themeToggleBtn->setFixedHeight(32);
+    m_themeToggleBtn->setFixedWidth(36);
+    m_themeToggleBtn->setText(
+        ThemeManager::current() == Theme::Dark
+            ? QStringLiteral("\u2600")  // sun
+            : QStringLiteral("\u263D")  // crescent moon
+    );
+    m_themeToggleBtn->setStyleSheet(QStringLiteral(
+        "QPushButton {"
+        "  background: transparent; border: 1px solid #e2e8f0;"
+        "  border-radius: 6px; padding: 0; font-size: 16px;"
+        "}"
+        "QPushButton:hover { background: #edf2f7; border-color: #90cdf4; }"
+    ));
+    connect(m_themeToggleBtn, &QPushButton::clicked, this, [this]() {
+        Theme newTheme = ThemeManager::toggle();
+        m_themeToggleBtn->setText(
+            newTheme == Theme::Dark ? QStringLiteral("\u2600") : QStringLiteral("\u263D")
+        );
+    });
+    toolbar->addWidget(m_themeToggleBtn);
+    toolbar->addWidget(makeGap(8));
 
     // Add Task button
     auto *addBtn = new QPushButton(QStringLiteral("+ Add Task"), toolbar);
@@ -223,17 +292,29 @@ void MainWindow::setupUi()
     toolbar->addWidget(addBtn);
     toolbar->addWidget(makeGap(4));
 
-    // ── Board canvas ─────────────────────────────────────────────────────
-    auto *central = new BoardCanvasWidget(this);
-    setCentralWidget(central);
+    // ── Central area: board bar + canvas stacked vertically ───────────────
+    auto *centralContainer = new QWidget(this);
+    setCentralWidget(centralContainer);
+    auto *outerLayout = new QVBoxLayout(centralContainer);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->setSpacing(0);
 
-    auto *boardLayout = new QHBoxLayout(central);
+    // Item 11: board bar (tab strip above the columns)
+    m_boardBar = new BoardBarWidget(m_manager.get(), centralContainer);
+    outerLayout->addWidget(m_boardBar);
+
+    // Board canvas with background image
+    auto *canvas = new BoardCanvasWidget(centralContainer);
+    outerLayout->addWidget(canvas, 1);
+
+    auto *boardLayout = new QHBoxLayout(canvas);
     boardLayout->setContentsMargins(20, 20, 20, 20);
     boardLayout->setSpacing(16);
 
-    m_columns[0] = new BoardColumnWidget(QStringLiteral("To Do"),      Task::Status::ToDo,       m_board.get(), central);
-    m_columns[1] = new BoardColumnWidget(QStringLiteral("In Progress"), Task::Status::InProgress, m_board.get(), central);
-    m_columns[2] = new BoardColumnWidget(QStringLiteral("Done"),        Task::Status::Done,        m_board.get(), central);
+    Board *board = m_manager->activeBoard();
+    m_columns[0] = new BoardColumnWidget(QStringLiteral("To Do"),      Task::Status::ToDo,       board, canvas);
+    m_columns[1] = new BoardColumnWidget(QStringLiteral("In Progress"), Task::Status::InProgress, board, canvas);
+    m_columns[2] = new BoardColumnWidget(QStringLiteral("Done"),        Task::Status::Done,        board, canvas);
 
     for (auto *col : m_columns) {
         col->setMinimumWidth(260);
@@ -241,13 +322,32 @@ void MainWindow::setupUi()
     }
 }
 
+// ── Signal connections ────────────────────────────────────────────────────────
+
+void MainWindow::connectBoardSignals()
+{
+    Board *board = activeBoard();
+    if (!board) return;
+
+    connect(board, &Board::taskAdded,   this, &MainWindow::onTaskAdded);
+    connect(board, &Board::taskUpdated, this, &MainWindow::onTaskUpdated);
+    connect(board, &Board::taskRemoved, this, &MainWindow::onTaskRemoved);
+    connect(board, &Board::boardReset,  this, &MainWindow::onBoardReset);
+}
+
 void MainWindow::connectSignals()
 {
-    // Board signals -> MainWindow slots (for UI rebuild + save)
-    connect(m_board.get(), &Board::taskAdded,   this, &MainWindow::onTaskAdded);
-    connect(m_board.get(), &Board::taskUpdated, this, &MainWindow::onTaskUpdated);
-    connect(m_board.get(), &Board::taskRemoved, this, &MainWindow::onTaskRemoved);
-    connect(m_board.get(), &Board::boardReset,  this, &MainWindow::onBoardReset);
+    // Initial board signals
+    connectBoardSignals();
+
+    // Item 11: respond to board switches from BoardBarWidget or BoardManager
+    connect(m_manager.get(), &BoardManager::activeBoardChanged,
+            this, &MainWindow::switchBoard);
+    connect(m_manager.get(), &BoardManager::boardListChanged,
+            m_boardBar, &BoardBarWidget::refresh);
+    // Persist board list changes (create/rename/delete) immediately
+    connect(m_manager.get(), &BoardManager::boardListChanged,
+            this, &MainWindow::saveAll);
 
     // Filter controls
     if (m_searchEdit)
@@ -265,45 +365,80 @@ void MainWindow::connectSignals()
         connect(col, &BoardColumnWidget::moveRequested,    this, &MainWindow::onMoveRequested,    Qt::QueuedConnection);
     }
 
-    // Item 10: Undo/Redo button clicks
+    // Undo/Redo buttons
     connect(m_undoBtn, &QPushButton::clicked, this, [this]() {
-        m_history->undo(*m_board);
+        if (auto *b = activeBoard()) m_history->undo(*b);
     });
     connect(m_redoBtn, &QPushButton::clicked, this, [this]() {
-        m_history->redo(*m_board);
+        if (auto *b = activeBoard()) m_history->redo(*b);
     });
 
-    // Item 10: CommandHistory signals -> button enabled state
     connect(m_history.get(), &CommandHistory::canUndoChanged, m_undoBtn, &QPushButton::setEnabled);
     connect(m_history.get(), &CommandHistory::canRedoChanged, m_redoBtn, &QPushButton::setEnabled);
 
-    // Item 10: Keyboard shortcuts Ctrl+Z / Ctrl+Y
     auto *undoShortcut = new QShortcut(QKeySequence::Undo, this);
     connect(undoShortcut, &QShortcut::activated, this, [this]() {
         if (m_history->canUndo())
-            m_history->undo(*m_board);
+            if (auto *b = activeBoard()) m_history->undo(*b);
     });
 
     auto *redoShortcut = new QShortcut(QKeySequence::Redo, this);
     connect(redoShortcut, &QShortcut::activated, this, [this]() {
         if (m_history->canRedo())
-            m_history->redo(*m_board);
+            if (auto *b = activeBoard()) m_history->redo(*b);
     });
 }
 
-// Item 7: collect all unique tags and rebuild the dropdown
+// ── Item 11: switch active board ─────────────────────────────────────────────
+
+void MainWindow::switchBoard(int index)
+{
+    // Disconnect old board signals
+    if (Board *old = m_columns[0]->board()) {
+        disconnect(old, nullptr, this, nullptr);
+    }
+
+    Board *board = m_manager->boardAt(index);
+    if (!board) return;
+
+    // Clear undo history when switching (history is conceptually per-board;
+    // a full per-board history stack would require storing CommandHistory in
+    // BoardManager -- kept simple for now as per planning doc.)
+    m_history->clear();
+    m_undoBtn->setEnabled(false);
+    m_redoBtn->setEnabled(false);
+
+    // Reconnect board signals
+    connect(board, &Board::taskAdded,   this, &MainWindow::onTaskAdded);
+    connect(board, &Board::taskUpdated, this, &MainWindow::onTaskUpdated);
+    connect(board, &Board::taskRemoved, this, &MainWindow::onTaskRemoved);
+    connect(board, &Board::boardReset,  this, &MainWindow::onBoardReset);
+
+    // Rebuild columns for new board
+    m_columns[0]->setBoardAndRebuild(board, board->tasksByStatus(Task::Status::ToDo));
+    m_columns[1]->setBoardAndRebuild(board, board->tasksByStatus(Task::Status::InProgress));
+    m_columns[2]->setBoardAndRebuild(board, board->tasksByStatus(Task::Status::Done));
+
+    rebuildTagFilterCombo();
+    onFilterChanged();
+    m_boardBar->refresh();
+}
+
+// ── rebuildTagFilterCombo ─────────────────────────────────────────────────────
+
 void MainWindow::rebuildTagFilterCombo()
 {
     if (!m_tagFilter) return;
+    Board *board = activeBoard();
+    if (!board) return;
 
     const QString currentTag = m_tagFilter->currentData().toString();
-
     m_tagFilter->blockSignals(true);
     m_tagFilter->clear();
     m_tagFilter->addItem(QStringLiteral("All Tags"), QString());
 
     QSet<QString> seen;
-    for (const Task &t : m_board->tasks()) {
+    for (const Task &t : board->tasks()) {
         for (const QString &tag : t.tags()) {
             if (!seen.contains(tag)) {
                 seen.insert(tag);
@@ -316,6 +451,8 @@ void MainWindow::rebuildTagFilterCombo()
     m_tagFilter->setCurrentIndex(idx >= 0 ? idx : 0);
     m_tagFilter->blockSignals(false);
 }
+
+// ── Filter ────────────────────────────────────────────────────────────────────
 
 void MainWindow::onFilterChanged()
 {
@@ -330,10 +467,11 @@ void MainWindow::onFilterChanged()
         tagFilter.append(m_tagFilter->currentData().toString());
 
     for (auto *col : m_columns) {
-        if (col)
-            col->setFilter(query, priority, tagFilter);
+        if (col) col->setFilter(query, priority, tagFilter);
     }
 }
+
+// ── Board signals -> UI ───────────────────────────────────────────────────────
 
 void MainWindow::onTaskAdded(const Task &task)
 {
@@ -341,7 +479,7 @@ void MainWindow::onTaskAdded(const Task &task)
         col->addCard(task);
     rebuildTagFilterCombo();
     onFilterChanged();
-    saveBoard();
+    saveAll();
 }
 
 void MainWindow::onTaskUpdated(const Task &task)
@@ -351,7 +489,7 @@ void MainWindow::onTaskUpdated(const Task &task)
         col->addCard(task);
     rebuildTagFilterCombo();
     onFilterChanged();
-    saveBoard();
+    saveAll();
 }
 
 void MainWindow::onTaskRemoved(QUuid id)
@@ -359,17 +497,20 @@ void MainWindow::onTaskRemoved(QUuid id)
     for (auto *col : m_columns) col->removeCard(id);
     rebuildTagFilterCombo();
     onFilterChanged();
-    saveBoard();
+    saveAll();
 }
 
 void MainWindow::onBoardReset()
 {
-    m_columns[0]->rebuildAll(m_board->tasksByStatus(Task::Status::ToDo));
-    m_columns[1]->rebuildAll(m_board->tasksByStatus(Task::Status::InProgress));
-    m_columns[2]->rebuildAll(m_board->tasksByStatus(Task::Status::Done));
+    Board *board = activeBoard();
+    if (!board) return;
+
+    m_columns[0]->rebuildAll(board->tasksByStatus(Task::Status::ToDo));
+    m_columns[1]->rebuildAll(board->tasksByStatus(Task::Status::InProgress));
+    m_columns[2]->rebuildAll(board->tasksByStatus(Task::Status::Done));
     rebuildTagFilterCombo();
 
-    // Item 9: restore last saved filter state after board load
+    // Item 9: restore filter state
     QSettings settings(QStringLiteral("qt-taskboard"), QStringLiteral("qt-taskboard"));
     if (m_searchEdit)
         m_searchEdit->setText(settings.value(QStringLiteral("filter/text")).toString());
@@ -385,7 +526,10 @@ void MainWindow::onBoardReset()
     }
 
     onFilterChanged();
+    m_boardBar->refresh();
 }
+
+// ── Task CRUD ─────────────────────────────────────────────────────────────────
 
 void MainWindow::onAddTask()
 {
@@ -393,61 +537,63 @@ void MainWindow::onAddTask()
     if (dlg.exec() == QDialog::Accepted) {
         Task t = dlg.task();
         if (!t.title().isEmpty()) {
-            // Item 10: route through CommandHistory so this is undoable
-            m_history->push(std::make_unique<AddTaskCommand>(t), *m_board);
+            if (auto *b = activeBoard())
+                m_history->push(std::make_unique<AddTaskCommand>(t), *b);
         }
     }
 }
 
 void MainWindow::onEditRequested(QUuid id)
 {
-    const auto opt = m_board->findTask(id);
+    Board *board = activeBoard();
+    if (!board) return;
+    const auto opt = board->findTask(id);
     if (!opt.has_value()) return;
 
     TaskEditDialog dlg(opt.value(), this);
     if (dlg.exec() == QDialog::Accepted) {
         Task updated = dlg.task();
-        updated.setStatus(opt.value().status());  // preserve column placement
-        // Item 10: undoable update (stores before/after snapshots)
+        updated.setStatus(opt.value().status());
         m_history->push(
             std::make_unique<UpdateTaskCommand>(opt.value(), updated),
-            *m_board);
+            *board);
     }
 }
 
 void MainWindow::onDeleteRequested(QUuid id)
 {
-    const auto opt = m_board->findTask(id);
+    Board *board = activeBoard();
+    if (!board) return;
+    const auto opt = board->findTask(id);
     if (!opt.has_value()) return;
-    // Item 10: undoable remove (captures full Task for restore)
-    m_history->push(std::make_unique<RemoveTaskCommand>(opt.value()), *m_board);
+    m_history->push(std::make_unique<RemoveTaskCommand>(opt.value()), *board);
 }
 
-// Item 8: open the read-only task details dialog
 void MainWindow::onMoveRequested(QUuid id, Task::Status newStatus)
 {
-    const auto opt = m_board->findTask(id);
+    Board *board = activeBoard();
+    if (!board) return;
+    const auto opt = board->findTask(id);
     if (!opt.has_value() || opt.value().status() == newStatus) return;
     m_history->push(
         std::make_unique<MoveTaskCommand>(id, opt.value().status(), newStatus),
-        *m_board);
+        *board);
 }
 
 void MainWindow::onDetailsRequested(QUuid id)
 {
-    const auto opt = m_board->findTask(id);
+    Board *board = activeBoard();
+    if (!board) return;
+    const auto opt = board->findTask(id);
     if (!opt.has_value()) return;
     TaskDetailsDialog dlg(opt.value(), this);
     dlg.exec();
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 BoardColumnWidget *MainWindow::columnFor(Task::Status status) const
 {
     const auto idx = static_cast<std::size_t>(static_cast<int>(status));
     return (idx < m_columns.size()) ? m_columns[idx] : nullptr;
-}
-
-void MainWindow::saveBoard()
-{
-    JsonStore::save(*m_board, m_saveFile);
 }
