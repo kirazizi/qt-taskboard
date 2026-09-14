@@ -1,4 +1,5 @@
 #include "ui/ChartWidget.h"
+#include "core/ThemeManager.h"
 
 #include <QPainter>
 #include <QPainterPath>
@@ -72,6 +73,8 @@ void ChartWidget::paintEvent(QPaintEvent *)
     const int H   = height();
     const int n   = m_data.size();
 
+    const bool isDark = (ThemeManager::current() == Theme::Dark);
+
     // Title
     int titleH = 0;
     if (!m_title.isEmpty()) {
@@ -79,7 +82,7 @@ void ChartWidget::paintEvent(QPaintEvent *)
         titleFont.setPointSizeF(font().pointSizeF() * 1.1);
         titleFont.setWeight(QFont::DemiBold);
         p.setFont(titleFont);
-        p.setPen(QColor(0x2d, 0x37, 0x48));
+        p.setPen(isDark ? QColor(0xf1, 0xf5, 0xf9) : QColor(0x2d, 0x37, 0x48));
         const int tw = QFontMetrics(titleFont).horizontalAdvance(m_title);
         p.drawText((W - tw) / 2, 18, m_title);
         titleH = 28;
@@ -116,7 +119,7 @@ void ChartWidget::paintEvent(QPaintEvent *)
     const QList<QColor> &pal = m_palette.isEmpty() ? defaultPalette : m_palette;
 
     // Draw baseline
-    p.setPen(QPen(QColor(0xe2, 0xe8, 0xf0), 1));
+    p.setPen(QPen(isDark ? QColor(0x33, 0x41, 0x55) : QColor(0xe2, 0xe8, 0xf0), 1));
     p.drawLine(padSide, H - padBot, W - padSide, H - padBot);
 
     int i = 0;
@@ -150,7 +153,7 @@ void ChartWidget::paintEvent(QPaintEvent *)
         // Key label below bar
         const QString key = it.key();
         const int kw = fm.horizontalAdvance(key);
-        p.setPen(QColor(0x71, 0x80, 0x96));
+        p.setPen(isDark ? QColor(0x94, 0xa3, 0xb8) : QColor(0x71, 0x80, 0x96));
         p.setFont(lblFont);
         p.drawText(x + (barW - kw) / 2, H - 6, key);
     }

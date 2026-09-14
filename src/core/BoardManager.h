@@ -57,6 +57,7 @@ public:
 signals:
     void boardListChanged();      // emitted after add/remove/rename
     void activeBoardChanged(int index); // emitted after setActiveIndex
+    void boardAboutToBeRemoved(int index, Board *board); // emitted before destroying board
 
 private:
     struct Entry {

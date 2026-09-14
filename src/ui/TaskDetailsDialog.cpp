@@ -1,4 +1,5 @@
 #include "ui/TaskDetailsDialog.h"
+#include "core/ThemeManager.h"
 
 #include <QHBoxLayout>
 #include <QLabel>
@@ -13,21 +14,23 @@
 
 static QLabel *makeFieldLabel(const QString &text, QWidget *parent)
 {
+    const bool isDark = (ThemeManager::current() == Theme::Dark);
     auto *l = new QLabel(text, parent);
     l->setStyleSheet(QStringLiteral(
-        "color: #718096; font-size: 11px; font-weight: 600;"
+        "color: %1; font-size: 11px; font-weight: 600;"
         " background: transparent; text-transform: uppercase;"
         " letter-spacing: 0.5px;"
-    ));
+    ).arg(isDark ? QStringLiteral("#94a3b8") : QStringLiteral("#718096")));
     return l;
 }
 
 static QLabel *makeValueLabel(const QString &text, QWidget *parent, bool multiline = false)
 {
+    const bool isDark = (ThemeManager::current() == Theme::Dark);
     auto *l = new QLabel(text.isEmpty() ? QStringLiteral("—") : text, parent);
     l->setStyleSheet(QStringLiteral(
-        "color: #2d3748; font-size: 13px; background: transparent;"
-    ));
+        "color: %1; font-size: 13px; background: transparent;"
+    ).arg(isDark ? QStringLiteral("#f1f5f9") : QStringLiteral("#2d3748")));
     if (multiline) {
         l->setWordWrap(true);
         l->setTextFormat(Qt::PlainText);
@@ -48,7 +51,14 @@ TaskDetailsDialog::TaskDetailsDialog(const Task &task, QWidget *parent)
 
 void TaskDetailsDialog::buildUi(const Task &task)
 {
-    setStyleSheet(QStringLiteral(
+    const bool isDark = (ThemeManager::current() == Theme::Dark);
+    setStyleSheet(isDark ? QStringLiteral(
+        "QDialog {"
+        "  background: #1e293b;"
+        "  border: 1px solid #334155;"
+        "  border-radius: 12px;"
+        "}"
+    ) : QStringLiteral(
         "QDialog {"
         "  background: #ffffff;"
         "  border: 1px solid #cbd5e1;"
@@ -94,7 +104,7 @@ void TaskDetailsDialog::buildUi(const Task &task)
     // ── Divider ──────────────────────────────────────────────────────────
     auto *topDiv = new QWidget(this);
     topDiv->setFixedHeight(1);
-    topDiv->setStyleSheet(QStringLiteral("background: #e2e8f0; border: none;"));
+    topDiv->setStyleSheet(isDark ? QStringLiteral("background: #334155; border: none;") : QStringLiteral("background: #e2e8f0; border: none;"));
     mainLayout->addWidget(topDiv);
     mainLayout->addSpacing(16);
 
@@ -190,7 +200,7 @@ void TaskDetailsDialog::buildUi(const Task &task)
     // Timestamps (Item 8)
     auto *tsDiv = new QWidget(this);
     tsDiv->setFixedHeight(1);
-    tsDiv->setStyleSheet(QStringLiteral("background: #f0f4f8; border: none;"));
+    tsDiv->setStyleSheet(isDark ? QStringLiteral("background: #0f172a; border: none;") : QStringLiteral("background: #f0f4f8; border: none;"));
     mainLayout->addWidget(tsDiv);
     mainLayout->addSpacing(12);
 
@@ -207,7 +217,7 @@ void TaskDetailsDialog::buildUi(const Task &task)
     // ── Close button ─────────────────────────────────────────────────────
     auto *bottomDiv = new QWidget(this);
     bottomDiv->setFixedHeight(1);
-    bottomDiv->setStyleSheet(QStringLiteral("background: #e2e8f0; border: none;"));
+    bottomDiv->setStyleSheet(isDark ? QStringLiteral("background: #334155; border: none;") : QStringLiteral("background: #e2e8f0; border: none;"));
     mainLayout->addWidget(bottomDiv);
     mainLayout->addSpacing(12);
 

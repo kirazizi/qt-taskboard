@@ -1,4 +1,5 @@
 #include "ui/TaskCardWidget.h"
+#include "core/ThemeManager.h"
 
 #include <QApplication>
 #include <QDrag>
@@ -11,15 +12,23 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
-// Deterministic pastel color palette for tag badges (Item 7)
-// Index is derived from qHash(tagText) % palette size
-static const char *kTagPalette[] = {
+// Deterministic color palettes for tag badges (Item 7)
+// Adapted for Light and Dark themes
+static const char *kTagPaletteLight[] = {
     "background:#ebf8ff;color:#3182ce;border:1px solid #bee3f8;",
     "background:#f0fff4;color:#276749;border:1px solid #9ae6b4;",
     "background:#faf5ff;color:#6b46c1;border:1px solid #d6bcfa;",
     "background:#fff5f5;color:#c53030;border:1px solid #feb2b2;",
     "background:#fffbeb;color:#b7791f;border:1px solid #fbd38d;",
     "background:#e6fffa;color:#234e52;border:1px solid #81e6d9;",
+};
+static const char *kTagPaletteDark[] = {
+    "background:rgba(56,189,248,0.18);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);",
+    "background:rgba(74,222,128,0.18);color:#4ade80;border:1px solid rgba(74,222,128,0.35);",
+    "background:rgba(192,132,252,0.18);color:#c084fc;border:1px solid rgba(192,132,252,0.35);",
+    "background:rgba(248,113,113,0.18);color:#f87171;border:1px solid rgba(248,113,113,0.35);",
+    "background:rgba(251,191,36,0.18);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);",
+    "background:rgba(45,212,191,0.18);color:#2dd4bf;border:1px solid rgba(45,212,191,0.35);",
 };
 static constexpr int kTagPaletteSize = 6;
 
@@ -29,16 +38,6 @@ TaskCardWidget::TaskCardWidget(const Task &task, QWidget *parent)
 {
     setAttribute(Qt::WA_StyledBackground, true);
     setObjectName(QStringLiteral("taskCard"));
-    setStyleSheet(QStringLiteral(
-        "#taskCard {"
-        "  background: #ffffff;"
-        "  border: 1px solid #e2e8f0;"
-        "  border-radius: 8px;"
-        "}"
-        "#taskCard:hover {"
-        "  border: 1px solid #90cdf4;"
-        "}"
-    ));
 
     auto *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(12, 10, 12, 10);
@@ -52,10 +51,8 @@ TaskCardWidget::TaskCardWidget(const Task &task, QWidget *parent)
     topLayout->setSpacing(4);
 
     m_titleLabel = new QLabel(task.title(), topRow);
+    m_titleLabel->setObjectName(QStringLiteral("taskTitle"));
     m_titleLabel->setWordWrap(true);
-    m_titleLabel->setStyleSheet(QStringLiteral(
-        "color: #2d3748; font-weight: 600; font-size: 13px; background: transparent;"
-    ));
 
     // Action bar: opacity=0 when not hovered, revealed on hover
     m_actionBar = new QWidget(topRow);
@@ -77,22 +74,26 @@ TaskCardWidget::TaskCardWidget(const Task &task, QWidget *parent)
     editBtn->setCursor(Qt::PointingHandCursor);
     delBtn->setCursor(Qt::PointingHandCursor);
 
+    const bool isDark = (ThemeManager::current() == Theme::Dark);
     const QString btnBase = QStringLiteral(
         "QPushButton {"
         "  background: transparent; border: none;"
-        "  color: #a0aec0; font-size: %1px; font-weight: 700;"
+        "  color: %1; font-size: %2px; font-weight: 700;"
         "  border-radius: 4px;"
         "}"
-    );
+    ).arg(isDark ? QStringLiteral("#64748b") : QStringLiteral("#a0aec0"));
     detailsBtn->setStyleSheet(
         btnBase.arg(14) +
-        QStringLiteral("QPushButton:hover { background: #ebf8ff; color: #4299e1; }"));
+        (isDark ? QStringLiteral("QPushButton:hover { background: #243247; color: #38bdf8; }")
+                : QStringLiteral("QPushButton:hover { background: #ebf8ff; color: #4299e1; }")));
     editBtn->setStyleSheet(
         btnBase.arg(14) +
-        QStringLiteral("QPushButton:hover { background: #ebf8ff; color: #4299e1; }"));
+        (isDark ? QStringLiteral("QPushButton:hover { background: #243247; color: #38bdf8; }")
+                : QStringLiteral("QPushButton:hover { background: #ebf8ff; color: #4299e1; }")));
     delBtn->setStyleSheet(
         btnBase.arg(12) +
-        QStringLiteral("QPushButton:hover { background: #fff5f5; color: #e53e3e; }"));
+        (isDark ? QStringLiteral("QPushButton:hover { background: #7f1d1d; color: #fca5a5; }")
+                : QStringLiteral("QPushButton:hover { background: #fff5f5; color: #e53e3e; }")));
 
     actionLayout->addWidget(detailsBtn);
     actionLayout->addWidget(editBtn);
@@ -194,6 +195,8 @@ void TaskCardWidget::updateFromTask(const Task &task)
 
 void TaskCardWidget::updateTagBadges()
 {
+    const bool isDark = (ThemeManager::current() == Theme::Dark);
+
     // Clear existing badges (keep the stretch spacer at the end)
     while (m_tagsLayout->count() > 1) {
         auto *item = m_tagsLayout->takeAt(0);
@@ -205,8 +208,9 @@ void TaskCardWidget::updateTagBadges()
     for (const QString &tag : tags) {
         auto *badge = new QLabel(tag, m_tagsRow);
         const int colorIdx = static_cast<int>(qHash(tag) % static_cast<uint>(kTagPaletteSize));
+        const char *palStyle = isDark ? kTagPaletteDark[colorIdx] : kTagPaletteLight[colorIdx];
         badge->setStyleSheet(
-            QString::fromLatin1(kTagPalette[colorIdx]) +
+            QString::fromLatin1(palStyle) +
             QStringLiteral(" border-radius: 4px; font-size: 10px;"
                            " font-weight: 600; padding: 1px 6px;"));
         // Insert before the stretch
@@ -218,10 +222,16 @@ void TaskCardWidget::updateTagBadges()
 
 void TaskCardWidget::updatePriorityLabel(Task::Priority p)
 {
+    const bool isDark = (ThemeManager::current() == Theme::Dark);
+
     switch (p) {
         case Task::Priority::Low:
             m_priorityLabel->setText(QStringLiteral("Low"));
-            m_priorityLabel->setStyleSheet(QStringLiteral(
+            m_priorityLabel->setStyleSheet(isDark ? QStringLiteral(
+                "background: rgba(34, 197, 94, 0.2); color: #4ade80;"
+                " border-radius: 4px; font-size: 11px; font-weight: 600;"
+                " padding: 2px 8px; border: 1px solid rgba(74, 222, 128, 0.4);"
+            ) : QStringLiteral(
                 "background: #f0fff4; color: #38a169;"
                 " border-radius: 4px; font-size: 11px; font-weight: 600;"
                 " padding: 2px 8px; border: 1px solid #c6f6d5;"
@@ -229,7 +239,11 @@ void TaskCardWidget::updatePriorityLabel(Task::Priority p)
             break;
         case Task::Priority::Medium:
             m_priorityLabel->setText(QStringLiteral("Medium"));
-            m_priorityLabel->setStyleSheet(QStringLiteral(
+            m_priorityLabel->setStyleSheet(isDark ? QStringLiteral(
+                "background: rgba(245, 158, 11, 0.2); color: #fbbf24;"
+                " border-radius: 4px; font-size: 11px; font-weight: 600;"
+                " padding: 2px 8px; border: 1px solid rgba(251, 191, 36, 0.4);"
+            ) : QStringLiteral(
                 "background: #fffbeb; color: #d97706;"
                 " border-radius: 4px; font-size: 11px; font-weight: 600;"
                 " padding: 2px 8px; border: 1px solid #fde68a;"
@@ -237,7 +251,11 @@ void TaskCardWidget::updatePriorityLabel(Task::Priority p)
             break;
         case Task::Priority::High:
             m_priorityLabel->setText(QStringLiteral("High"));
-            m_priorityLabel->setStyleSheet(QStringLiteral(
+            m_priorityLabel->setStyleSheet(isDark ? QStringLiteral(
+                "background: rgba(239, 68, 68, 0.2); color: #f87171;"
+                " border-radius: 4px; font-size: 11px; font-weight: 600;"
+                " padding: 2px 8px; border: 1px solid rgba(248, 113, 113, 0.4);"
+            ) : QStringLiteral(
                 "background: #fff5f5; color: #e53e3e;"
                 " border-radius: 4px; font-size: 11px; font-weight: 600;"
                 " padding: 2px 8px; border: 1px solid #fed7d7;"
@@ -253,9 +271,7 @@ void TaskCardWidget::updateDueDateLabel(QDate dueDate)
         return;
     }
     m_dueDateLabel->setText(dueDate.toString(QStringLiteral("MMM d, yyyy")));
-    m_dueDateLabel->setStyleSheet(QStringLiteral(
-        "color: #a0aec0; font-size: 11px; background: transparent;"
-    ));
+    m_dueDateLabel->setObjectName(QStringLiteral("taskDueDate"));
 }
 
 void TaskCardWidget::enterEvent(QEnterEvent *event)

@@ -1,4 +1,6 @@
 #include "ui/BoardBarWidget.h"
+#include <QTimer>
+#include "core/ThemeManager.h"
 #include <QEvent>
 #include <QMouseEvent>
 #include "core/BoardManager.h"
@@ -13,10 +15,7 @@ BoardBarWidget::BoardBarWidget(BoardManager *manager, QWidget *parent)
     , m_manager(manager)
 {
     setFixedHeight(40);
-    setStyleSheet(QStringLiteral(
-        "background: rgba(255,255,255,0.85);"
-        "border-bottom: 1px solid #e2e8f0;"
-    ));
+    setObjectName(QStringLiteral("boardBar"));
 
     m_layout = new QHBoxLayout(this);
     m_layout->setContentsMargins(16, 4, 16, 4);
@@ -24,20 +23,12 @@ BoardBarWidget::BoardBarWidget(BoardManager *manager, QWidget *parent)
     m_layout->addStretch();
 
     // "+" new board button (stays at the right end)
-    auto *addBtn = new QPushButton(QStringLiteral("+"), this);
-    addBtn->setToolTip(QStringLiteral("New Board"));
-    addBtn->setFixedSize(28, 28);
-    addBtn->setCursor(Qt::PointingHandCursor);
-    addBtn->setStyleSheet(QStringLiteral(
-        "QPushButton {"
-        "  background: #ebf8ff; color: #2b6cb0;"
-        "  border: 1px solid #bee3f8; border-radius: 6px;"
-        "  font-size: 16px; font-weight: 700;"
-        "}"
-        "QPushButton:hover { background: #bee3f8; }"
-    ));
-    connect(addBtn, &QPushButton::clicked, this, &BoardBarWidget::onAddBoard);
-    m_layout->addWidget(addBtn);
+    m_addBtn = new QPushButton(QStringLiteral("+"), this);
+    m_addBtn->setToolTip(QStringLiteral("New Board"));
+    m_addBtn->setFixedSize(28, 28);
+    m_addBtn->setCursor(Qt::PointingHandCursor);
+    connect(m_addBtn, &QPushButton::clicked, this, &BoardBarWidget::onAddBoard);
+    m_layout->addWidget(m_addBtn);
 
     refresh();
 }
@@ -50,6 +41,25 @@ void BoardBarWidget::refresh()
         w->deleteLater();
     }
     m_tabs.clear();
+
+    const bool isDarkTheme = (ThemeManager::current() == Theme::Dark);
+    if (m_addBtn) {
+        m_addBtn->setStyleSheet(isDarkTheme ? QStringLiteral(
+            "QPushButton {"
+            "  background: #1e293b; color: #38bdf8;"
+            "  border: 1px solid #334155; border-radius: 6px;"
+            "  font-size: 16px; font-weight: 700;"
+            "}"
+            "QPushButton:hover { background: #243247; border-color: #38bdf8; }"
+        ) : QStringLiteral(
+            "QPushButton {"
+            "  background: #ebf8ff; color: #2b6cb0;"
+            "  border: 1px solid #bee3f8; border-radius: 6px;"
+            "  font-size: 16px; font-weight: 700;"
+            "}"
+            "QPushButton:hover { background: #bee3f8; }"
+        ));
+    }
 
     const int active = m_manager->activeIndex();
     const int total  = m_manager->count();
@@ -74,21 +84,30 @@ void BoardBarWidget::refresh()
         nameBtn->setFixedHeight(28);
         nameBtn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
+        const bool isDark = (ThemeManager::current() == Theme::Dark);
+
         if (isActive) {
             nameBtn->setStyleSheet(QStringLiteral(
                 "QPushButton {"
-                "  background: #4299e1; color: white;"
+                "  background: %1; color: white;"
                 "  border: none;"
-                "  border-radius: %1px 0px 0px %1px;"
+                "  border-radius: 6px 0px 0px 6px;"
                 "  padding: 0 10px 0 14px; font-weight: 600;"
                 "}"
-            ).arg(canDelete ? 6 : 6));
+            ).arg(isDark ? QStringLiteral("#0284c7") : QStringLiteral("#4299e1")));
         } else {
-            nameBtn->setStyleSheet(QStringLiteral(
+            nameBtn->setStyleSheet(isDark ? QStringLiteral(
+                "QPushButton {"
+                "  background: #1e293b; color: #94a3b8;"
+                "  border: 1px solid #334155; border-right: none;"
+                "  border-radius: 6px 0px 0px 6px;"
+                "  padding: 0 10px 0 14px;"
+                "}"
+                "QPushButton:hover { background: #243247; color: #f1f5f9; }"
+            ) : QStringLiteral(
                 "QPushButton {"
                 "  background: transparent; color: #4a5568;"
-                "  border: 1px solid #e2e8f0;"
-                "  border-right: none;"
+                "  border: 1px solid #e2e8f0; border-right: none;"
                 "  border-radius: 6px 0px 0px 6px;"
                 "  padding: 0 10px 0 14px;"
                 "}"
@@ -116,15 +135,24 @@ void BoardBarWidget::refresh()
         if (isActive) {
             delBtn->setStyleSheet(QStringLiteral(
                 "QPushButton {"
-                "  background: #3182ce; color: rgba(255,255,255,0.8);"
+                "  background: %1; color: rgba(255,255,255,0.85);"
                 "  border: none; border-left: 1px solid rgba(255,255,255,0.25);"
                 "  border-radius: 0px 6px 6px 0px;"
                 "  font-size: 13px; padding: 0;"
                 "}"
-                "QPushButton:hover { background: #2b6cb0; color: white; }"
-            ));
+                "QPushButton:hover { background: %2; color: white; }"
+            ).arg(isDark ? QStringLiteral("#0369a1") : QStringLiteral("#3182ce"),
+                 isDark ? QStringLiteral("#075985") : QStringLiteral("#2b6cb0")));
         } else {
-            delBtn->setStyleSheet(QStringLiteral(
+            delBtn->setStyleSheet(isDark ? QStringLiteral(
+                "QPushButton {"
+                "  background: #1e293b; color: #64748b;"
+                "  border: 1px solid #334155; border-left: none;"
+                "  border-radius: 0px 6px 6px 0px;"
+                "  font-size: 13px; padding: 0;"
+                "}"
+                "QPushButton:hover { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }"
+            ) : QStringLiteral(
                 "QPushButton {"
                 "  background: transparent; color: #a0aec0;"
                 "  border: 1px solid #e2e8f0; border-left: none;"
@@ -142,6 +170,9 @@ void BoardBarWidget::refresh()
                                       : 0;
 
             // Confirm before deleting non-empty boards
+            const QUuid boardId = m_manager->metaAt(i).id;
+
+            // Confirm before deleting non-empty boards
             if (taskCount > 0) {
                 const auto answer = QMessageBox::question(
                     this,
@@ -155,7 +186,17 @@ void BoardBarWidget::refresh()
                 );
                 if (answer != QMessageBox::Yes) return;
             }
-            m_manager->removeBoard(i);
+
+            // Execute deletion asynchronously on next event loop tick
+            // so delBtn's click event finishes cleanly first
+            QTimer::singleShot(0, this, [this, boardId]() {
+                for (int k = 0; k < m_manager->count(); ++k) {
+                    if (m_manager->metaAt(k).id == boardId) {
+                        m_manager->removeBoard(k);
+                        break;
+                    }
+                }
+            });
         });
 
         chipLayout->addWidget(delBtn);

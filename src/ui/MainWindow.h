@@ -54,6 +54,7 @@ private slots:
 
     // Item 11: switch to a different board by index
     void switchBoard(int index);
+    void onBoardAboutToBeRemoved(int index, Board *board);
 
 private:
     void setupUi();
@@ -70,7 +71,8 @@ private:
 
     // ── UI ───────────────────────────────────────────────────────────────────
     std::array<BoardColumnWidget *, 3> m_columns{};
-    BoardBarWidget *m_boardBar        = nullptr;  // Item 11
+    BoardBarWidget *m_boardBar        = nullptr;
+    QWidget        *m_canvas          = nullptr;  // Item 11
     QLineEdit      *m_searchEdit      = nullptr;
     QComboBox      *m_priorityFilter  = nullptr;
     QComboBox      *m_tagFilter       = nullptr;

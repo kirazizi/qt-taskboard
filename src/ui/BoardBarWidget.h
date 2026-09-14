@@ -38,5 +38,6 @@ private slots:
 private:
     BoardManager *m_manager;
     QHBoxLayout  *m_layout;
+    QPushButton  *m_addBtn = nullptr;
     QList<QWidget *> m_tabs;  // chip containers (nameBtn + delBtn each)
 };

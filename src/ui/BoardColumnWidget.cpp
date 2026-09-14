@@ -21,13 +21,6 @@ BoardColumnWidget::BoardColumnWidget(const QString &title,
     setAttribute(Qt::WA_StyledBackground, true);
 
     setObjectName(QStringLiteral("boardColumn"));
-    setStyleSheet(QStringLiteral(
-        "#boardColumn {"
-        "  background: rgba(255, 255, 255, 0.85);"
-        "  border: 1px solid rgba(210, 224, 238, 0.75);"
-        "  border-radius: 12px;"
-        "}"
-    ));
 
     auto *outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
@@ -37,32 +30,19 @@ BoardColumnWidget::BoardColumnWidget(const QString &title,
     auto *header = new QWidget(this);
     header->setAttribute(Qt::WA_StyledBackground, true);
     header->setObjectName(QStringLiteral("colHeader"));
-    header->setStyleSheet(QStringLiteral(
-        "#colHeader {"
-        "  background: transparent;"
-        "  border-bottom: 1px solid rgba(226, 232, 240, 0.8);"
-        "}"
-    ));
 
     auto *headerLayout = new QHBoxLayout(header);
     headerLayout->setContentsMargins(16, 12, 16, 12);
     headerLayout->setSpacing(8);
 
     auto *titleLabel = new QLabel(title, header);
-    titleLabel->setStyleSheet(QStringLiteral(
-        "color: #2d3748; font-weight: 700; font-size: 13px;"
-        " background: transparent;"
-    ));
+    titleLabel->setObjectName(QStringLiteral("colTitle"));
 
     m_countLabel = new QLabel(QStringLiteral("0"), header);
+    m_countLabel->setObjectName(QStringLiteral("colCount"));
     m_countLabel->setAlignment(Qt::AlignCenter);
     m_countLabel->setFixedHeight(20);
     m_countLabel->setMinimumWidth(24);
-    m_countLabel->setStyleSheet(QStringLiteral(
-        "background: #e2e8f0; color: #4a5568;"
-        " border-radius: 10px; font-size: 11px; font-weight: 600;"
-        " padding: 0 7px;"
-    ));
 
     headerLayout->addWidget(titleLabel);
     headerLayout->addStretch();
@@ -92,6 +72,12 @@ BoardColumnWidget::BoardColumnWidget(const QString &title,
 
 void BoardColumnWidget::addCard(const Task &task)
 {
+    // Prevent duplicate cards for the same task in this column
+    if (findCard(task.id())) {
+        updateCard(task);
+        return;
+    }
+
     auto *card = new TaskCardWidget(task);
     connect(card, &TaskCardWidget::editRequested,
             this, &BoardColumnWidget::editRequested);

@@ -54,13 +54,25 @@ protected:
     void paintEvent(QPaintEvent *) override
     {
         QPainter painter(this);
+        const bool isDark = (ThemeManager::current() == Theme::Dark);
         if (!m_scaledPixmap.isNull()) {
             painter.drawPixmap(0, 0, m_scaledPixmap);
+            if (isDark) {
+                // Sleek, rich dark slate overlay over mountain landscape
+                painter.fillRect(rect(), QColor(15, 23, 42, 215));
+            }
         } else {
-            QLinearGradient grad(0, 0, 0, height());
-            grad.setColorAt(0, QColor(0xe8, 0xf0, 0xf8));
-            grad.setColorAt(1, QColor(0xc8, 0xd8, 0xea));
-            painter.fillRect(rect(), grad);
+            if (isDark) {
+                QLinearGradient grad(0, 0, 0, height());
+                grad.setColorAt(0, QColor(0x0f, 0x17, 0x2a));
+                grad.setColorAt(1, QColor(0x1e, 0x29, 0x3b));
+                painter.fillRect(rect(), grad);
+            } else {
+                QLinearGradient grad(0, 0, 0, height());
+                grad.setColorAt(0, QColor(0xe8, 0xf0, 0xf8));
+                grad.setColorAt(1, QColor(0xc8, 0xd8, 0xea));
+                painter.fillRect(rect(), grad);
+            }
         }
     }
 
@@ -108,6 +120,12 @@ MainWindow::MainWindow(QWidget *parent)
         m_activeBoard = nullptr;
     }
     JsonStore::load(*m_manager, m_saveFile);
+
+    // If load() didn't trigger switchBoard() (e.g. file didn't exist),
+    // ensure the active board signals and columns are initialized:
+    if (!m_activeBoard) {
+        switchBoard(0);
+    }
 
     // Item 9: restore window geometry from last session
     QSettings settings(QStringLiteral("qt-taskboard"), QStringLiteral("qt-taskboard"));
@@ -159,10 +177,7 @@ void MainWindow::setupUi()
     toolbar->setMovable(false);
 
     auto *appLabel = new QLabel(QStringLiteral("Taskboard"), toolbar);
-    appLabel->setStyleSheet(QStringLiteral(
-        "color: #1a202c; font-size: 15px; font-weight: 700;"
-        " background: transparent; padding-left: 4px; padding-right: 12px;"
-    ));
+    appLabel->setObjectName(QStringLiteral("appLogoLabel"));
     toolbar->addWidget(appLabel);
 
     auto makeGap = [&](int w) -> QWidget * {
@@ -197,33 +212,23 @@ void MainWindow::setupUi()
     toolbar->addWidget(m_tagFilter);
     toolbar->addWidget(makeGap(16));
 
-    const QString undoRedoStyle = QStringLiteral(
-        "QPushButton {"
-        "  background: transparent; border: 1px solid #e2e8f0;"
-        "  border-radius: 6px; padding: 0 10px;"
-        "  color: #4a5568; font-size: 16px; font-weight: 600;"
-        "}"
-        "QPushButton:hover:enabled { background: #edf2f7; border-color: #90cdf4; }"
-        "QPushButton:disabled { color: #cbd5e0; border-color: #edf2f7; }"
-    );
-
     m_undoBtn = new QPushButton(QStringLiteral("\u21B6"), toolbar);
+    m_undoBtn->setObjectName(QStringLiteral("toolUndoRedoBtn"));
     m_undoBtn->setToolTip(QStringLiteral("Undo  (Ctrl+Z)"));
     m_undoBtn->setCursor(Qt::PointingHandCursor);
     m_undoBtn->setFixedHeight(32);
     m_undoBtn->setFixedWidth(36);
     m_undoBtn->setEnabled(false);
-    m_undoBtn->setStyleSheet(undoRedoStyle);
     toolbar->addWidget(m_undoBtn);
     toolbar->addWidget(makeGap(4));
 
     m_redoBtn = new QPushButton(QStringLiteral("\u21B7"), toolbar);
+    m_redoBtn->setObjectName(QStringLiteral("toolUndoRedoBtn"));
     m_redoBtn->setToolTip(QStringLiteral("Redo  (Ctrl+Y)"));
     m_redoBtn->setCursor(Qt::PointingHandCursor);
     m_redoBtn->setFixedHeight(32);
     m_redoBtn->setFixedWidth(36);
     m_redoBtn->setEnabled(false);
-    m_redoBtn->setStyleSheet(undoRedoStyle);
     toolbar->addWidget(m_redoBtn);
 
     // Flexible spacer
@@ -233,19 +238,12 @@ void MainWindow::setupUi()
     toolbar->addWidget(spacer);
 
     // Item 12: Stats dashboard button (Ctrl+Shift+S)
-    m_statsBtn = new QPushButton(QStringLiteral("\u2022\u2022\u2022"), toolbar); // bullet chart icon
+    m_statsBtn = new QPushButton(QStringLiteral("\u25A3"), toolbar);
+    m_statsBtn->setObjectName(QStringLiteral("toolActionBtn"));
     m_statsBtn->setToolTip(QStringLiteral("Board Statistics  (Ctrl+Shift+S)"));
     m_statsBtn->setCursor(Qt::PointingHandCursor);
     m_statsBtn->setFixedHeight(32);
     m_statsBtn->setFixedWidth(40);
-    m_statsBtn->setText(QStringLiteral("\u25A3")); // filled square chart symbol
-    m_statsBtn->setStyleSheet(QStringLiteral(
-        "QPushButton {"
-        "  background: transparent; border: 1px solid #e2e8f0;"
-        "  border-radius: 6px; padding: 0; font-size: 15px; color: #4a5568;"
-        "}"
-        "QPushButton:hover { background: #edf2f7; border-color: #90cdf4; }"
-    ));
     connect(m_statsBtn, &QPushButton::clicked, this, [this]() {
         if (auto *b = activeBoard()) {
             StatsDialog dlg(*b, this);
@@ -257,6 +255,7 @@ void MainWindow::setupUi()
 
     // Item 14: Theme toggle button
     m_themeToggleBtn = new QPushButton(toolbar);
+    m_themeToggleBtn->setObjectName(QStringLiteral("toolActionBtn"));
     m_themeToggleBtn->setToolTip(QStringLiteral("Toggle Dark / Light Mode"));
     m_themeToggleBtn->setCursor(Qt::PointingHandCursor);
     m_themeToggleBtn->setFixedHeight(32);
@@ -266,18 +265,16 @@ void MainWindow::setupUi()
             ? QStringLiteral("\u2600")  // sun
             : QStringLiteral("\u263D")  // crescent moon
     );
-    m_themeToggleBtn->setStyleSheet(QStringLiteral(
-        "QPushButton {"
-        "  background: transparent; border: 1px solid #e2e8f0;"
-        "  border-radius: 6px; padding: 0; font-size: 16px;"
-        "}"
-        "QPushButton:hover { background: #edf2f7; border-color: #90cdf4; }"
-    ));
     connect(m_themeToggleBtn, &QPushButton::clicked, this, [this]() {
         Theme newTheme = ThemeManager::toggle();
         m_themeToggleBtn->setText(
             newTheme == Theme::Dark ? QStringLiteral("\u2600") : QStringLiteral("\u263D")
         );
+        m_boardBar->refresh();
+        if (m_canvas) m_canvas->update();
+        if (activeBoard()) {
+            switchBoard(m_manager->activeIndex());
+        }
     });
     toolbar->addWidget(m_themeToggleBtn);
     toolbar->addWidget(makeGap(8));
@@ -311,8 +308,9 @@ void MainWindow::setupUi()
     outerLayout->addWidget(m_boardBar);
 
     // Board canvas with background image
-    auto *canvas = new BoardCanvasWidget(centralContainer);
-    outerLayout->addWidget(canvas, 1);
+    m_canvas = new BoardCanvasWidget(centralContainer);
+    outerLayout->addWidget(m_canvas, 1);
+    auto *canvas = m_canvas;
 
     auto *boardLayout = new QHBoxLayout(canvas);
     boardLayout->setContentsMargins(20, 20, 20, 20);
@@ -336,11 +334,14 @@ void MainWindow::connectBoardSignals()
     Board *board = activeBoard();
     if (!board) return;
 
+    if (m_activeBoard) {
+        disconnect(m_activeBoard, nullptr, this, nullptr);
+    }
     m_activeBoard = board;  // track so switchBoard() can safely disconnect later
-    connect(board, &Board::taskAdded,   this, &MainWindow::onTaskAdded);
-    connect(board, &Board::taskUpdated, this, &MainWindow::onTaskUpdated);
-    connect(board, &Board::taskRemoved, this, &MainWindow::onTaskRemoved);
-    connect(board, &Board::boardReset,  this, &MainWindow::onBoardReset);
+    connect(board, &Board::taskAdded,   this, &MainWindow::onTaskAdded,   Qt::UniqueConnection);
+    connect(board, &Board::taskUpdated, this, &MainWindow::onTaskUpdated, Qt::UniqueConnection);
+    connect(board, &Board::taskRemoved, this, &MainWindow::onTaskRemoved, Qt::UniqueConnection);
+    connect(board, &Board::boardReset,  this, &MainWindow::onBoardReset,  Qt::UniqueConnection);
 }
 
 void MainWindow::connectSignals()
@@ -351,6 +352,8 @@ void MainWindow::connectSignals()
     // Item 11: respond to board switches from BoardBarWidget or BoardManager
     connect(m_manager.get(), &BoardManager::activeBoardChanged,
             this, &MainWindow::switchBoard);
+    connect(m_manager.get(), &BoardManager::boardAboutToBeRemoved,
+            this, &MainWindow::onBoardAboutToBeRemoved);
     connect(m_manager.get(), &BoardManager::boardListChanged,
             m_boardBar, &BoardBarWidget::refresh);
     // Persist board list changes (create/rename/delete) immediately
@@ -397,6 +400,15 @@ void MainWindow::connectSignals()
     });
 }
 
+void MainWindow::onBoardAboutToBeRemoved(int index, Board *board)
+{
+    Q_UNUSED(index);
+    if (m_activeBoard && m_activeBoard == board) {
+        disconnect(m_activeBoard, nullptr, this, nullptr);
+        m_activeBoard = nullptr;
+    }
+}
+
 // ── Item 11: switch active board ─────────────────────────────────────────────
 
 void MainWindow::switchBoard(int index)
@@ -420,10 +432,11 @@ void MainWindow::switchBoard(int index)
     m_redoBtn->setEnabled(false);
 
     // Reconnect board signals
-    connect(board, &Board::taskAdded,   this, &MainWindow::onTaskAdded);
-    connect(board, &Board::taskUpdated, this, &MainWindow::onTaskUpdated);
-    connect(board, &Board::taskRemoved, this, &MainWindow::onTaskRemoved);
-    connect(board, &Board::boardReset,  this, &MainWindow::onBoardReset);
+    m_activeBoard = board;  // track active board so next switchBoard() can cleanly disconnect
+    connect(board, &Board::taskAdded,   this, &MainWindow::onTaskAdded,   Qt::UniqueConnection);
+    connect(board, &Board::taskUpdated, this, &MainWindow::onTaskUpdated, Qt::UniqueConnection);
+    connect(board, &Board::taskRemoved, this, &MainWindow::onTaskRemoved, Qt::UniqueConnection);
+    connect(board, &Board::boardReset,  this, &MainWindow::onBoardReset,  Qt::UniqueConnection);
 
     // Rebuild columns for new board
     m_columns[0]->setBoardAndRebuild(board, board->tasksByStatus(Task::Status::ToDo));

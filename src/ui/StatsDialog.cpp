@@ -1,4 +1,5 @@
 #include "ui/StatsDialog.h"
+#include "core/ThemeManager.h"
 #include "ui/ChartWidget.h"
 #include "core/Board.h"
 #include "core/Task.h"
@@ -16,15 +17,19 @@
 static QLabel *makeStatBox(const QString &value, const QString &label,
                            const QColor &color, QWidget *parent)
 {
+    const bool isDark = (ThemeManager::current() == Theme::Dark);
     auto *box = new QLabel(parent);
     box->setAlignment(Qt::AlignCenter);
     box->setMinimumWidth(110);
     box->setFixedHeight(80);
     box->setText(QStringLiteral(
         "<div style='font-size:28px;font-weight:700;color:%1;'>%2</div>"
-        "<div style='font-size:11px;color:#718096;margin-top:2px;'>%3</div>"
-    ).arg(color.name(), value, label));
-    box->setStyleSheet(QStringLiteral(
+        "<div style='font-size:11px;color:%3;margin-top:2px;'>%4</div>"
+    ).arg(color.name(), value, isDark ? QStringLiteral("#94a3b8") : QStringLiteral("#718096"), label));
+    box->setStyleSheet(isDark ? QStringLiteral(
+        "background: #1e293b; border: 1px solid #334155;"
+        "border-radius: 10px; padding: 8px;"
+    ) : QStringLiteral(
         "background: white; border: 1px solid #e2e8f0;"
         "border-radius: 10px; padding: 8px;"
     ));
@@ -36,9 +41,10 @@ static QLabel *makeStatBox(const QString &value, const QString &label,
 StatsDialog::StatsDialog(const Board &board, QWidget *parent)
     : QDialog(parent)
 {
+    const bool isDark = (ThemeManager::current() == Theme::Dark);
     setWindowTitle(QStringLiteral("Board Statistics"));
     setMinimumWidth(640);
-    setStyleSheet(QStringLiteral("background: #f7fafc;"));
+    setStyleSheet(isDark ? QStringLiteral("background: #0f172a;") : QStringLiteral("background: #f7fafc;"));
 
     auto *root = new QVBoxLayout(this);
     root->setContentsMargins(24, 24, 24, 24);
@@ -46,7 +52,9 @@ StatsDialog::StatsDialog(const Board &board, QWidget *parent)
 
     // ── Title ──────────────────────────────────────────────────────────────
     auto *title = new QLabel(QStringLiteral("Board Statistics"), this);
-    title->setStyleSheet(QStringLiteral(
+    title->setStyleSheet(isDark ? QStringLiteral(
+        "font-size: 18px; font-weight: 700; color: #f8fafc;"
+    ) : QStringLiteral(
         "font-size: 18px; font-weight: 700; color: #1a202c;"
     ));
     root->addWidget(title);

@@ -160,3 +160,107 @@ QPushButton:hover {
 QPushButton:pressed {
     background: #edf2f7;
 }
+
+
+/* ── Custom App Elements (Light Mode) ────────────────────────────────────── */
+
+QLabel#appLogoLabel {
+    color: #1a202c;
+    font-size: 15px;
+    font-weight: 700;
+    background: transparent;
+    padding-left: 4px;
+    padding-right: 12px;
+}
+
+QPushButton#toolUndoRedoBtn {
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0 10px;
+    color: #4a5568;
+    font-size: 16px;
+    font-weight: 600;
+}
+QPushButton#toolUndoRedoBtn:hover:enabled {
+    background: #edf2f7;
+    border-color: #90cdf4;
+}
+QPushButton#toolUndoRedoBtn:disabled {
+    color: #cbd5e0;
+    border-color: #edf2f7;
+}
+
+QPushButton#toolActionBtn {
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0;
+    font-size: 15px;
+    color: #4a5568;
+}
+QPushButton#toolActionBtn:hover {
+    background: #edf2f7;
+    border-color: #90cdf4;
+}
+
+#boardBar {
+    background: rgba(255, 255, 255, 0.85);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+#boardColumn {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(210, 224, 238, 0.75);
+    border-radius: 12px;
+}
+#colHeader {
+    background: transparent;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+QLabel#colTitle {
+    color: #2d3748;
+    font-weight: 700;
+    font-size: 13px;
+    background: transparent;
+}
+QLabel#colCount {
+    background: #e2e8f0;
+    color: #4a5568;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0 7px;
+}
+
+#taskCard {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+#taskCard:hover {
+    border: 1px solid #90cdf4;
+}
+QLabel#taskTitle {
+    color: #2d3748;
+    font-weight: 600;
+    font-size: 13px;
+    background: transparent;
+}
+QLabel#taskDueDate {
+    color: #718096;
+    font-size: 11px;
+    background: transparent;
+}
+QPushButton#cardActionBtn {
+    background: #edf2f7;
+    color: #4a5568;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+QPushButton#cardActionBtn:hover {
+    background: #e2e8f0;
+    border-color: #a0aec0;
+}

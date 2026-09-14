@@ -59,11 +59,18 @@ bool BoardManager::removeBoard(int index)
     if (static_cast<int>(m_entries.size()) <= 1) return false; // must keep at least 1
     if (index < 0 || index >= static_cast<int>(m_entries.size())) return false;
 
+    // Notify listeners before destroying the board unique_ptr
+    Board *dyingBoard = m_entries[index].board.get();
+    emit boardAboutToBeRemoved(index, dyingBoard);
+
     m_entries.erase(m_entries.begin() + index);
 
-    // Clamp active index
-    if (m_activeIndex >= static_cast<int>(m_entries.size()))
+    // Properly adjust active index
+    if (m_activeIndex > index) {
+        m_activeIndex--;
+    } else if (m_activeIndex >= static_cast<int>(m_entries.size())) {
         m_activeIndex = static_cast<int>(m_entries.size()) - 1;
+    }
 
     emit boardListChanged();
     emit activeBoardChanged(m_activeIndex);
