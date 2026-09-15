@@ -1,4 +1,5 @@
 #include "ui/TaskEditDialog.h"
+#include "core/ThemeManager.h"
 
 #include <QComboBox>
 #include <QDateEdit>
@@ -14,22 +15,27 @@
 #include <QVBoxLayout>
 
 // ── Shared style constants ────────────────────────────────────────────────────
-static const char *kLabelStyle =
-    "color: #718096; font-size: 12px; font-weight: 600;"
-    " background: transparent;";
+static const char *kLabelStyleLight =
+    "color: #718096; font-size: 12px; font-weight: 600; background: transparent;";
+static const char *kLabelStyleDark =
+    "color: #94a3b8; font-size: 12px; font-weight: 600; background: transparent;";
 
-static const char *kInputStyle =
+static const char *kInputStyleLight =
     "QLineEdit, QTextEdit, QComboBox, QDateEdit {"
-    "  background: #f7fafc;"
-    "  border: 1px solid #e2e8f0;"
-    "  border-radius: 6px;"
-    "  padding: 5px 10px;"
-    "  color: #2d3748;"
-    "  font-size: 13px;"
+    "  background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px;"
+    "  padding: 5px 10px; color: #2d3748; font-size: 13px;"
     "}"
     "QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QDateEdit:focus {"
-    "  border: 1px solid #90cdf4;"
-    "  background: #ebf8ff;"
+    "  border: 1px solid #90cdf4; background: #ebf8ff;"
+    "}";
+
+static const char *kInputStyleDark =
+    "QLineEdit, QTextEdit, QComboBox, QDateEdit {"
+    "  background: #0f172a; border: 1px solid #334155; border-radius: 6px;"
+    "  padding: 5px 10px; color: #f1f5f9; font-size: 13px;"
+    "}"
+    "QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QDateEdit:focus {"
+    "  border: 1px solid #38bdf8; background: #1e293b;"
     "}";
 
 // ── Constructors ─────────────────────────────────────────────────────────────
@@ -63,7 +69,17 @@ TaskEditDialog::TaskEditDialog(const Task &task, QWidget *parent)
 
 void TaskEditDialog::buildUi()
 {
-    setStyleSheet(QStringLiteral(
+    const bool isDark = (ThemeManager::current() == Theme::Dark);
+    const char *kLabelStyle = isDark ? kLabelStyleDark : kLabelStyleLight;
+    const char *kInputStyle = isDark ? kInputStyleDark : kInputStyleLight;
+
+    setStyleSheet(isDark ? QStringLiteral(
+        "QDialog {"
+        "  background: #1e293b;"
+        "  border: 1px solid #334155;"
+        "  border-radius: 12px;"
+        "}"
+    ) : QStringLiteral(
         "QDialog {"
         "  background: #ffffff;"
         "  border: 1px solid #cbd5e1;"
@@ -82,7 +98,10 @@ void TaskEditDialog::buildUi()
     headerLayout->setContentsMargins(0, 0, 0, 0);
 
     auto *headerLabel = new QLabel(windowTitle(), headerRow);
-    headerLabel->setStyleSheet(QStringLiteral(
+    headerLabel->setStyleSheet(isDark ? QStringLiteral(
+        "color: #f8fafc; font-size: 17px; font-weight: 700;"
+        " background: transparent; border: none;"
+    ) : QStringLiteral(
         "color: #1a202c; font-size: 17px; font-weight: 700;"
         " background: transparent; border: none;"
     ));
@@ -90,7 +109,14 @@ void TaskEditDialog::buildUi()
     auto *closeBtn = new QPushButton(QStringLiteral("\u2715"), headerRow);
     closeBtn->setFixedSize(28, 28);
     closeBtn->setCursor(Qt::PointingHandCursor);
-    closeBtn->setStyleSheet(QStringLiteral(
+    closeBtn->setStyleSheet(isDark ? QStringLiteral(
+        "QPushButton {"
+        "  background: transparent; border: none;"
+        "  color: #94a3b8; font-size: 13px; font-weight: 700;"
+        "  border-radius: 6px;"
+        "}"
+        "QPushButton:hover { background: #334155; color: #f8fafc; }"
+    ) : QStringLiteral(
         "QPushButton {"
         "  background: transparent; border: none;"
         "  color: #a0aec0; font-size: 13px; font-weight: 700;"
@@ -165,7 +191,8 @@ void TaskEditDialog::buildUi()
     // ── Divider ──────────────────────────────────────────────────────────
     auto *divider = new QWidget(this);
     divider->setFixedHeight(1);
-    divider->setStyleSheet(QStringLiteral("background: #e2e8f0; border: none;"));
+    divider->setStyleSheet(isDark ? QStringLiteral("background: #334155; border: none;")
+                                  : QStringLiteral("background: #e2e8f0; border: none;"));
     mainLayout->addWidget(divider);
 
     // ── Buttons ──────────────────────────────────────────────────────────
@@ -174,7 +201,14 @@ void TaskEditDialog::buildUi()
 
     auto *cancelBtn = new QPushButton(QStringLiteral("Cancel"), this);
     cancelBtn->setCursor(Qt::PointingHandCursor);
-    cancelBtn->setStyleSheet(QStringLiteral(
+    cancelBtn->setStyleSheet(isDark ? QStringLiteral(
+        "QPushButton {"
+        "  background: #0f172a; border: 1px solid #334155;"
+        "  border-radius: 7px; padding: 8px 22px;"
+        "  color: #cbd5e1; font-weight: 600;"
+        "}"
+        "QPushButton:hover { background: #243247; }"
+    ) : QStringLiteral(
         "QPushButton {"
         "  background: #f7fafc; border: 1px solid #e2e8f0;"
         "  border-radius: 7px; padding: 8px 22px;"
