@@ -79,7 +79,12 @@ void ChartWidget::paintEvent(QPaintEvent *)
     int titleH = 0;
     if (!m_title.isEmpty()) {
         QFont titleFont = font();
-        titleFont.setPointSizeF(font().pointSizeF() * 1.1);
+        if (titleFont.pointSizeF() > 0)
+            titleFont.setPointSizeF(titleFont.pointSizeF() * 1.1);
+        else if (titleFont.pixelSize() > 0)
+            titleFont.setPixelSize(static_cast<int>(titleFont.pixelSize() * 1.1));
+        else
+            titleFont.setPointSize(12);
         titleFont.setWeight(QFont::DemiBold);
         p.setFont(titleFont);
         p.setPen(isDark ? QColor(0xf1, 0xf5, 0xf9) : QColor(0x2d, 0x37, 0x48));
